@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BB 反彈實時監控詳表板</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .tab-button {
+            padding: 12px 25px;
+            border: none;
+            background: white;
+            color: #667eea;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .tab-button.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .tab-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            margin-bottom: 20px;
+            transition: transform 0.3s;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        input[type="number"],
+        input[type="text"],
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+        
+        input[type="number"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
+        }
+        
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-success {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        button:hover {
+            transform: scale(1.02);
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+            font-weight: 500;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .signal-item {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .signal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .signal-symbol {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .signal-badge {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+        
+        .badge-upper {
+            background: #ff6b6b;
+            color: white;
+        }
+        
+        .badge-lower {
+            background: #4ecdc4;
+            color: white;
+        }
+        
+        .badge-excellent {
+            background: #28a745;
+            color: white;
+        }
+        
+        .badge-good {
+            background: #20c997;
+            color: white;
+        }
+        
+        .badge-moderate {
+            background: #ffc107;
+            color: #333;
+        }
+        
+        .signal-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+        
+        .signal-value {
+            color: #667eea;
+            font-weight: bold;
+        }
+        
+        .monitoring-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 15px;
+            background: #e3f2fd;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #4CAF50;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .confidence-bar {
+            width: 100%;
+            height: 20px;
+            background: #eee;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>BB 反彈實時監控詳表板</h1>
+            <p>實時監控並手動預測整合系統</p>
+        </div>
+        
+        <div class="tabs">
+            <button class="tab-button active" onclick="switchTab('realtime')">[實時監控]</button>
+            <button class="tab-button" onclick="switchTab('manual')">[手動預測]</button>
+            <button class="tab-button" onclick="switchTab('signals')">[信號記錄]</button>
+        </div>
+        
+        <!-- 實時監控頁面 -->
+        <div id="realtime" class="tab-content active">
+            <div class="card">
+                <h2>實時監控控制板</h2>
+                
+                <div class="monitoring-status">
+                    <div class="status-dot"></div>
+                    <span id="monitoring-text">監控将定日运行在后台...</span>
+                </div>
+                
+                <div class="grid">
+                    <div class="form-group">
+                        <label>監控币种</label>
+                        <select id="monitor-symbols" multiple size="10">
+                            <option value="" selected>[選择監控的币种 - 不選即監控所有]</option>
+                            <option value="BTCUSDT">BTCUSDT</option>
+                            <option value="ETHUSDT">ETHUSDT</option>
+                            <option value="BNBUSDT">BNBUSDT</option>
+                            <option value="ADAUSDT">ADAUSDT</option>
+                            <option value="SOLUSDT">SOLUSDT</option>
+                            <option value="UNIUSDT">UNIUSDT</option>
+                            <option value="AVAXUSDT">AVAXUSDT</option>
+                            <option value="DOGEUSDT">DOGEUSDT</option>
+                            <option value="DOTUSDT">DOTUSDT</option>
+                            <option value="LINKUSDT">LINKUSDT</option>
+                            <option value="LTCUSDT">LTCUSDT</option>
+                            <option value="XRPUSDT">XRPUSDT</option>
+                            <option value="ETCUSDT">ETCUSDT</option>
+                            <option value="FILUSDT">FILUSDT</option>
+                            <option value="BCHUSDT">BCHUSDT</option>
+                            <option value="MATICUSDT">MATICUSDT</option>
+                            <option value="NEARUSDT">NEARUSDT</option>
+                            <option value="ALGOUSDT">ALGOUSDT</option>
+                            <option value="ATOMUSDT">ATOMUSDT</option>
+                            <option value="ARBUSDT">ARBUSDT</option>
+                            <option value="OPUSDT">OPUSDT</option>
+                            <option value="AAVESTDT">AAVESTDT</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>時間框架</label>
+                        <select id="monitor-timeframes" multiple size="10">
+                            <option value="15m" selected>15m (入15分鐘)</option>
+                            <option value="1h" selected>1h (1小時)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>監控間隔(秒)</label>
+                        <input type="number" id="monitor-interval" value="60" min="10" max="3600">
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-success" onclick="startMonitoring()" style="flex: 1;">開始監控</button>
+                    <button class="btn-danger" onclick="stopMonitoring()" style="flex: 1;">停止監控</button>
+                </div>
+                
+                <div id="monitoring-results" style="margin-top: 20px;"></div>
+            </div>
+        </div>
+        
+        <!-- 手動預測頁面 -->
+        <div id="manual" class="tab-content">
+            <div class="card">
+                <h2>手動預測</h2>
+                
+                <div class="grid">
+                    <div class="form-group">
+                        <label>币种</label>
+                        <select id="manual-symbol">
+                            <option value="BTCUSDT">BTCUSDT</option>
+                            <option value="ETHUSDT">ETHUSDT</option>
+                            <option value="BNBUSDT">BNBUSDT</option>
+                            <option value="ADAUSDT">ADAUSDT</option>
+                            <option value="SOLUSDT">SOLUSDT</option>
+                            <option value="UNIUSDT">UNIUSDT</option>
+                            <option value="AVAXUSDT">AVAXUSDT</option>
+                            <option value="DOGEUSDT">DOGEUSDT</option>
+                            <option value="DOTUSDT">DOTUSDT</option>
+                            <option value="LINKUSDT">LINKUSDT</option>
+                            <option value="LTCUSDT">LTCUSDT</option>
+                            <option value="XRPUSDT">XRPUSDT</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>時間框架</label>
+                        <select id="manual-timeframe">
+                            <option value="15m">15m</option>
+                            <option value="1h">1h</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button class="btn-primary" onclick="fetchAndPredict()" style="width: 100%; padding: 15px; font-size: 1.1em;">推遭最新 K 棒並預測</button>
+                
+                <div id="manual-result" style="margin-top: 20px;"></div>
+            </div>
+        </div>
+        
+        <!-- 信號記錄頁面 -->
+        <div id="signals" class="tab-content">
+            <div class="card">
+                <h2>信號記錄</h2>
+                <div id="signals-list" style="max-height: 600px; overflow-y: auto;">
+                    <p style="color: #999; text-align: center;">一旦第一次掃描或手動預測成功，信號將在這窗的上方顯示...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const API_URL = 'http://localhost:5000';
+        let monitoringInterval = null;
+        let signals = [];
+        
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+        
+        function startMonitoring() {
+            const interval = parseInt(document.getElementById('monitor-interval').value) * 1000;
+            const results = document.getElementById('monitoring-results');
+            
+            results.innerHTML = '<div class="status info">[監控已啟用] 正在后台監控...</div>';
+            
+            document.getElementById('monitoring-text').textContent = '[正在下列]';
+            
+            // 每間隱閯運行一次掃描
+            runMonitoringCycle();
+            monitoringInterval = setInterval(runMonitoringCycle, interval);
+        }
+        
+        function stopMonitoring() {
+            if (monitoringInterval) {
+                clearInterval(monitoringInterval);
+                document.getElementById('monitoring-results').innerHTML = '<div class="status error">監控已停止</div>';
+                document.getElementById('monitoring-text').textContent = '監控已停止';
+            }
+        }
+        
+        function runMonitoringCycle() {
+            const results = document.getElementById('monitoring-results');
+            results.innerHTML = '<div class="loading"><div class="spinner"></div><p>進行中...</p></div>';
+            
+            // 模擬掃描一段時間取三个隊引信號
+            setTimeout(() => {
+                const mockSignals = [
+                    {
+                        symbol: 'BTCUSDT',
+                        timeframe: '1h',
+                        touch_type: 'LOWER',
+                        success_probability: 0.82,
+                        confidence: 'GOOD',
+                        rsi: 28,
+                        volume_ratio: 2.3
+                    },
+                    {
+                        symbol: 'ETHUSDT',
+                        timeframe: '15m',
+                        touch_type: 'UPPER',
+                        success_probability: 0.71,
+                        confidence: 'MODERATE',
+                        rsi: 72,
+                        volume_ratio: 1.8
+                    },
+                    {
+                        symbol: 'SOLUSDT',
+                        timeframe: '1h',
+                        touch_type: 'LOWER',
+                        success_probability: 0.88,
+                        confidence: 'EXCELLENT',
+                        rsi: 22,
+                        volume_ratio: 3.1
+                    }
+                ];
+                
+                displayMonitoringResults(mockSignals);
+                
+                mockSignals.forEach(sig => addSignalToHistory(sig));
+            }, 1000);
+        }
+        
+        function displayMonitoringResults(mockSignals) {
+            const results = document.getElementById('monitoring-results');
+            let html = '<div class="status success">[SCAN COMPLETE] 發現 ' + mockSignals.length + ' 個信號</div><div style="margin-top: 15px;">';
+            
+            mockSignals.sort((a, b) => b.success_probability - a.success_probability);
+            
+            mockSignals.forEach((sig, idx) => {
+                const touchBadge = sig.touch_type === 'LOWER' ? '<span class="signal-badge badge-lower">DOWN</span>' : '<span class="signal-badge badge-upper">UP</span>';
+                const confidenceBadge = sig.confidence === 'EXCELLENT' ? '<span class="signal-badge badge-excellent">EXCELLENT</span>' : 
+                                        sig.confidence === 'GOOD' ? '<span class="signal-badge badge-good">GOOD</span>' : 
+                                        '<span class="signal-badge badge-moderate">MODERATE</span>';
+                
+                html += `
+                    <div class="signal-item">
+                        <div class="signal-header">
+                            <span class="signal-symbol">${sig.symbol} ${sig.timeframe}</span>
+                            <div>${touchBadge} ${confidenceBadge}</div>
+                        </div>
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" style="width: ${sig.success_probability * 100}%">${(sig.success_probability * 100).toFixed(1)}%</div>
+                        </div>
+                        <div class="signal-details">
+                            <div>RSI: <span class="signal-value">${sig.rsi.toFixed(1)}</span></div>
+                            <div>VOL Ratio: <span class="signal-value">${sig.volume_ratio.toFixed(2)}</span></div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            results.innerHTML = html + '</div>';
+        }
+        
+        function addSignalToHistory(signal) {
+            signals.unshift({
+                ...signal,
+                timestamp: new Date().toLocaleString()
+            });
+            
+            const list = document.getElementById('signals-list');
+            const touchBadge = signal.touch_type === 'LOWER' ? '<span class="signal-badge badge-lower">DOWN</span>' : '<span class="signal-badge badge-upper">UP</span>';
+            const confidenceBadge = signal.confidence === 'EXCELLENT' ? '<span class="signal-badge badge-excellent">EXCELLENT</span>' : 
+                                    signal.confidence === 'GOOD' ? '<span class="signal-badge badge-good">GOOD</span>' : 
+                                    '<span class="signal-badge badge-moderate">MODERATE</span>';
+            
+            const html = `
+                <div class="signal-item">
+                    <div class="signal-header">
+                        <span class="signal-symbol">${signal.symbol} ${signal.timeframe}</span>
+                        <div>${touchBadge} ${confidenceBadge}</div>
+                    </div>
+                    <div style="font-size: 0.8em; color: #999; margin-bottom: 10px;">${signal.timestamp}</div>
+                    <div class="confidence-bar">
+                        <div class="confidence-fill" style="width: ${signal.success_probability * 100}%">${(signal.success_probability * 100).toFixed(1)}%</div>
+                    </div>
+                    <div class="signal-details">
+                        <div>RSI: <span class="signal-value">${signal.rsi.toFixed(1)}</span></div>
+                        <div>VOL Ratio: <span class="signal-value">${signal.volume_ratio.toFixed(2)}</span></div>
+                    </div>
+                </div>
+            `;
+            
+            if (list.innerHTML.includes('\u4e00\u65e6')) {
+                list.innerHTML = html;
+            } else {
+                list.innerHTML = html + list.innerHTML;
+            }
+        }
+        
+        async function fetchAndPredict() {
+            const symbol = document.getElementById('manual-symbol').value;
+            const timeframe = document.getElementById('manual-timeframe').value;
+            const result = document.getElementById('manual-result');
+            
+            result.innerHTML = '<div class="loading"><div class="spinner"></div><p>[推遭中...]</p></div>';
+            
+            // 模擬預測結果
+            setTimeout(() => {
+                const mockResult = {
+                    symbol: symbol,
+                    timeframe: timeframe,
+                    close: 42500.25,
+                    bb_upper: 42800.15,
+                    bb_lower: 41900.45,
+                    touch_type: 'LOWER',
+                    success_probability: 0.85,
+                    confidence: 'EXCELLENT',
+                    rsi: 25,
+                    volume_ratio: 2.8
+                };
+                
+                displayPredictionResult(mockResult);
+                addSignalToHistory(mockResult);
+            }, 1500);
+        }
+        
+        function displayPredictionResult(result) {
+            const resultDiv = document.getElementById('manual-result');
+            
+            const touchBadge = result.touch_type === 'LOWER' ? '<span class="signal-badge badge-lower">下軌觸及</span>' : '<span class="signal-badge badge-upper">上軌觸及</span>';
+            const confidenceBadge = result.confidence === 'EXCELLENT' ? '<span class="signal-badge badge-excellent">EXCELLENT</span>' : 
+                                    result.confidence === 'GOOD' ? '<span class="signal-badge badge-good">GOOD</span>' : 
+                                    '<span class="signal-badge badge-moderate">MODERATE</span>';
+            
+            resultDiv.innerHTML = `
+                <div class="signal-item">
+                    <div class="signal-header">
+                        <span class="signal-symbol">${result.symbol} ${result.timeframe}</span>
+                        <div>${touchBadge} ${confidenceBadge}</div>
+                    </div>
+                    <div class="confidence-bar">
+                        <div class="confidence-fill" style="width: ${result.success_probability * 100}%">${(result.success_probability * 100).toFixed(1)}%</div>
+                    </div>
+                    <div class="signal-details">
+                        <div>當前价格: <span class="signal-value">$${result.close.toFixed(2)}</span></div>
+                        <div>BB 上軌: <span class="signal-value">$${result.bb_upper.toFixed(2)}</span></div>
+                        <div>BB 下軌: <span class="signal-value">$${result.bb_lower.toFixed(2)}</span></div>
+                        <div>RSI: <span class="signal-value">${result.rsi.toFixed(1)}</span></div>
+                        <div>VOL Ratio: <span class="signal-value">${result.volume_ratio.toFixed(2)}</span></div>
+                        <div>信心級別: <span class="signal-value">${result.confidence}</span></div>
+                    </div>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
