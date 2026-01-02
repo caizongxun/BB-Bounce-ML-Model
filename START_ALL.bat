@@ -1,7 +1,7 @@
 @echo off
 REM ============================================================================
 REM BB Bounce Pro - 一鍵啟動所有服務
-REM 版本：v4 (最新修復版本)
+REM 版本：v5 (最新修復版本)
 REM ============================================================================
 
 setlocal enabledelayedexpansion
@@ -9,7 +9,7 @@ setlocal enabledelayedexpansion
 echo.
 echo ============================================================================
 echo BB Bounce Pro - 一鍵啟動系統
-echo 版本: v4 (已修復所有 Bug)
+echo 版本: v5 (已修復所有 Bug)
 echo ============================================================================
 echo.
 
@@ -41,7 +41,7 @@ echo ===========================================================================
 echo.
 echo 這個批次檔會開啟 2 個 Terminal：
 echo   1. Chart Data Service (Port 5001) - K 線和 BB 軌道數據
-echo   2. ML Prediction Service v4 (Port 5002) - ML 模型預測 (已修復)
+echo   2. ML Prediction Service v5 (Port 5002) - ML 模型預測 (已修復)
 echo.
 echo 然後手勘打開瀏覽器訪問儀表板
 echo.
@@ -57,10 +57,10 @@ REM 等待第一個服務啟動
 timeout /t 3 /nobreak >nul 2>&1
 
 echo.
-echo [Step 2] 啟動 ML 預測服務 v4...
+echo [Step 2] 啟動 ML 預測服務 v5...
 echo.
-start /d "%cd%" "ML Prediction Service v4" cmd /k "python ml_prediction_service_v4.py"
-echo [OK] ML Prediction Service v4 已啟動 (Port 5002)
+start /d "%cd%" "ML Prediction Service v5" cmd /k "python ml_prediction_service_v5.py"
+echo [OK] ML Prediction Service v5 已啟動 (Port 5002)
 
 REM 等待第二個服務啟動
 timeout /t 3 /nobreak >nul 2>&1
@@ -89,10 +89,11 @@ echo [Tip] 如果需要停止：
 echo   1. 在對應的 Terminal 中按 Ctrl+C
 echo   2. 或直接關閉 Terminal 窗口
 echo.
-echo [重要] v4 版本已修復：
+echo [重要] v5 版本已修復：
 echo   - 修復了檔案名稱匹配問題
+echo   - 修復了特徵數不匹配 bug (子與辅異點)
 echo   - 應該看到 "Model: model_BTCUSDT_1h" (不是 fallback)
-echo   - Confidence 應該在 70-90% 之間
+echo   - Confidence 應該在 70-90%% 之間
 echo.
 echo ============================================================================
 echo.
