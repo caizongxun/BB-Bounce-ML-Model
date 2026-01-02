@@ -43,6 +43,16 @@
             color: #9ca3af;
         }
         
+        .demo-badge {
+            background: rgba(251, 146, 60, 0.2);
+            border: 1px solid #fb923c;
+            color: #fb923c;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        
         .status {
             display: flex;
             align-items: center;
@@ -405,6 +415,7 @@
     <div class="header">
         <h1>BB Bounce Pro - ML Powered</h1>
         <div class="header-right">
+            <div class="demo-badge" id="demo-indicator" style="display: none;">DEMO 模式</div>
             <span id="update-time">--:--:--</span>
             <div class="status" id="status-indicator">
                 <div class="status-dot"></div>
@@ -423,6 +434,13 @@
         <div id="detector" class="tab-content active">
             <div class="detector-controls">
                 <div class="panel-title" style="font-size: 12px; font-weight: bold; color: #06b6d4; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px;">參數調整</div>
+                
+                <div class="control-group">
+                    <label style="display: flex; align-items: center; gap: 8px; color: #d1d5db; font-size: 11px; margin-bottom: 15px; cursor: pointer;">
+                        <input type="checkbox" id="use-demo-mode">
+                        <span style="font-weight: bold; color: #fb923c;">使用 DEMO 模式 (似數據)</span>
+                    </label>
+                </div>
                 
                 <div class="control-group">
                     <div class="control-label">刷新間隔 (秒)</div>
@@ -482,7 +500,7 @@
             <div class="detector-content">
                 <div id="progress-info" class="progress-info" style="display: none;"></div>
                 <div id="symbols-container" class="symbols-grid">
-                    <div class="loading"><div class="spinner"></div> 正在並行加載數據...</div>
+                    <div class="loading"><div class="spinner"></div> 正在加載數據...</div>
                 </div>
             </div>
         </div>
@@ -511,7 +529,33 @@
         
         let detectorInterval = null;
         let isUpdating = false;
-        const MAX_CONCURRENT = 5;  // 並行上限
+        const MAX_CONCURRENT = 5;
+        
+        // 型數據生成器
+        function generateDemoData(symbol) {
+            const basePrice = Math.random() * 40000 + 1000;
+            const volatility = Math.random() * 3 + 0.5;
+            const bbMiddle = basePrice;
+            const stdDevValue = basePrice * volatility / 100;
+            const bbUpper = bbMiddle + stdDevValue * 2;
+            const bbLower = bbMiddle - stdDevValue * 2;
+            const currentPrice = basePrice + (Math.random() - 0.5) * basePrice * 0.05;
+            
+            const signals = ['BUY', 'SELL', 'HOLD'];
+            const randomSignal = signals[Math.floor(Math.random() * 3)];
+            const confidence = Math.random() * 0.4 + 0.5;
+            
+            return {
+                symbol,
+                price: parseFloat(currentPrice.toFixed(2)),
+                upper: parseFloat(bbUpper.toFixed(2)),
+                lower: parseFloat(bbLower.toFixed(2)),
+                middle: parseFloat(bbMiddle.toFixed(2)),
+                volatility: parseFloat(volatility.toFixed(2)),
+                signal: randomSignal,
+                confidence: confidence
+            };
+        }
         
         // UI 更新監聽器
         document.getElementById('touch-threshold').addEventListener('input', (e) => {
@@ -520,6 +564,16 @@
         
         document.getElementById('min-confidence').addEventListener('input', (e) => {
             document.getElementById('min-confidence-display').textContent = e.target.value;
+        });
+        
+        document.getElementById('use-demo-mode').addEventListener('change', (e) => {
+            const demoIndicator = document.getElementById('demo-indicator');
+            if (e.target.checked) {
+                demoIndicator.style.display = 'block';
+            } else {
+                demoIndicator.style.display = 'none';
+            }
+            updateDetector();
         });
         
         function switchTab(tab) {
@@ -535,7 +589,6 @@
             const timeoutId = setTimeout(() => controller.abort(), timeout);
             
             try {
-                // 並行加載 K 線數據
                 const chartResponse = await fetch(
                     `${API_BASE}/api/klines?symbol=${symbol}&timeframe=${timeframe}&period=${period}&stddev=2&limit=5`,
                     { signal: controller.signal }
@@ -550,7 +603,6 @@
                 
                 const chartData = await chartResponse.json();
                 
-                // 體體驗證
                 if (!chartData.stats || typeof chartData.stats.current_price !== 'number') {
                     console.warn(`${symbol}: 數據不完整`);
                     return null;
@@ -563,13 +615,11 @@
                 const middle = stats.bb_middle;
                 const volatility = stats.volatility || 0;
                 
-                // 計算距離百分比
                 const distToUpper = Math.abs(upper - price) / middle * 100;
                 const distToLower = Math.abs(price - lower) / middle * 100;
                 const isNearUpper = distToUpper <= threshold;
                 const isNearLower = distToLower <= threshold;
                 
-                // 並行加載 ML 預測
                 let signal = '---';
                 let confidence = 0;
                 let signalStrength = '未知';
@@ -597,7 +647,6 @@
                         signal = mlData.signal || '---';
                         confidence = typeof mlData.confidence === 'number' ? mlData.confidence : 0;
                         
-                        // 判斷信號強度
                         if (confidence >= 0.75) {
                             signalStrength = '強信號';
                             signalClass = 'strength-strong';
@@ -609,14 +658,12 @@
                             signalClass = 'strength-weak';
                         }
                         
-                        // 過濾最小信心度
                         if (confidence * 100 < minConfidence) return null;
                     }
                 } catch (e) {
                     console.log(`${symbol} ML 預測失敗`);
                 }
                 
-                // 構建卡片數據
                 const alertType = isNearUpper ? 'upper' : (isNearLower ? 'lower' : 'none');
                 const alertDistance = Math.min(distToUpper, distToLower);
                 
@@ -648,7 +695,7 @@
             }
         }
         
-        // 批量加載（限佋並行數）
+        // 批量加載
         async function batchFetch(symbols, batchSize, timeframe, period, threshold, minConfidence, timeout) {
             const results = [];
             let completedCount = 0;
@@ -672,13 +719,13 @@
         }
         
         async function updateDetector() {
-            // 防止並發警報
             if (isUpdating) {
                 console.log('上一次更新還未完成，跳過此次');
                 return;
             }
             isUpdating = true;
             
+            const useDemo = document.getElementById('use-demo-mode').checked;
             const timeframe = document.getElementById('timeframe').value;
             const period = document.getElementById('bb-period').value;
             const threshold = parseFloat(document.getElementById('touch-threshold').value);
@@ -690,21 +737,72 @@
             const container = document.getElementById('symbols-container');
             const progressInfo = document.getElementById('progress-info');
             
-            container.innerHTML = '<div class="loading"><div class="spinner"></div> 正在批量加載數據...</div>';
+            container.innerHTML = '<div class="loading"><div class="spinner"></div> 正在加載數據...</div>';
             progressInfo.style.display = 'block';
             progressInfo.innerHTML = '已完成: 0/' + SYMBOLS.length;
             
             try {
-                // 使用 batchFetch，限制並行數爲 5
-                const cardsData = await batchFetch(
-                    SYMBOLS, 
-                    MAX_CONCURRENT, 
-                    timeframe, 
-                    period, 
-                    threshold, 
-                    minConfidence, 
-                    timeout
-                );
+                let cardsData = [];
+                
+                if (useDemo) {
+                    // DEMO 模式—就用型數據
+                    for (let i = 0; i < SYMBOLS.length; i++) {
+                        const demoCard = generateDemoData(SYMBOLS[i]);
+                        const distToUpper = Math.abs(demoCard.upper - demoCard.price) / demoCard.middle * 100;
+                        const distToLower = Math.abs(demoCard.price - demoCard.lower) / demoCard.middle * 100;
+                        const isNearUpper = distToUpper <= threshold;
+                        const isNearLower = distToLower <= threshold;
+                        const alertType = isNearUpper ? 'upper' : (isNearLower ? 'lower' : 'none');
+                        const alertDistance = Math.min(distToUpper, distToLower);
+                        
+                        // 判定信號強度
+                        let signalStrength = '未知';
+                        let signalClass = '';
+                        if (demoCard.confidence >= 0.75) {
+                            signalStrength = '強信號';
+                            signalClass = 'strength-strong';
+                        } else if (demoCard.confidence >= 0.60) {
+                            signalStrength = '中信號';
+                            signalClass = 'strength-medium';
+                        } else {
+                            signalStrength = '弱信號';
+                            signalClass = 'strength-weak';
+                        }
+                        
+                        if (demoCard.confidence * 100 >= minConfidence) {
+                            cardsData.push({
+                                symbol: demoCard.symbol,
+                                price: demoCard.price,
+                                upper: demoCard.upper,
+                                lower: demoCard.lower,
+                                alertType,
+                                isNearUpper,
+                                isNearLower,
+                                alertDistance,
+                                signal: demoCard.signal,
+                                confidence: demoCard.confidence,
+                                signalStrength,
+                                signalClass,
+                                volatility: demoCard.volatility
+                            });
+                        }
+                        
+                        const completed = i + 1;
+                        progressInfo.innerHTML = `已完成: ${completed}/${SYMBOLS.length} (DEMO)`;
+                        await new Promise(resolve => setTimeout(resolve, 50));
+                    }
+                } else {
+                    // 實騵加載
+                    cardsData = await batchFetch(
+                        SYMBOLS, 
+                        MAX_CONCURRENT, 
+                        timeframe, 
+                        period, 
+                        threshold, 
+                        minConfidence, 
+                        timeout
+                    );
+                }
                 
                 const validCards = cardsData.filter(r => r !== null);
                 
@@ -733,7 +831,6 @@
         function renderCards(cardsData, showAlertsOnly) {
             const container = document.getElementById('symbols-container');
             
-            // 過濾只顯示警報
             let displayData = cardsData;
             if (showAlertsOnly) {
                 displayData = cardsData.filter(d => d.alertType !== 'none');
@@ -806,7 +903,6 @@
         window.addEventListener('DOMContentLoaded', () => {
             updateDetector();
             
-            // 自動刷新
             detectorInterval = setInterval(() => {
                 const interval = parseInt(document.getElementById('refresh-interval').value);
                 updateDetector();
