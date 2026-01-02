@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-BB反彈 ML 預測 API - 支援多個幣种和時間框架
-動態加載不同的模型
+BB反弹 ML 预测 API - 支持多个币种和时间框架
+动态加载不同的模型
 """
 
 from flask import Flask, request, jsonify
@@ -26,7 +26,7 @@ CORS(app)
 MODELS_DIR = './models/specialized'
 FALLBACK_MODELS_DIR = './models'
 
-# 全所有24個幣种
+# 全所有22个币种
 AVAILABLE_SYMBOLS = [
     'AAVESTDT', 'ADAUSDT', 'ALGOUSDT', 'ARBUSDT', 'ATOMUSDT',
     'AVAXUSDT', 'BCHUSDT', 'BNBUSDT', 'BTCUSDT', 'DOGEUSDT',
@@ -37,25 +37,25 @@ AVAILABLE_SYMBOLS = [
 
 AVAILABLE_TIMEFRAMES = ['15m', '1h']
 
-# 模型快取記戆
+# 模型快取
 model_cache = {}
 
 def load_model(symbol, timeframe):
     """
-    加載特定幣种時間框的模型
-    优先級: 專所朎模型 > 通用優化模型 > 原始模型
+    加载特定币种时间框的模型
+    优先级: 专所有模型 > 通用优化模型 > 原始模型
     """
     
     model_key = f"{symbol}_{timeframe}"
     
-    # 棄取快取記戆
+    # 检查快取
     if model_key in model_cache:
         return model_cache[model_key]
     
     model_data = {}
     model_source = None
     
-    # 优先級1: 專所朎模型目錄
+    # 优先级1: 专所有模型目录
     specialized_model_path = f'{MODELS_DIR}/model_{model_key}.pkl'
     if Path(specialized_model_path).exists():
         try:
@@ -71,7 +71,7 @@ def load_model(symbol, timeframe):
         except:
             pass
     
-    # 优先級2: 通用優化模型
+    # 优先级2: 通用优化模型
     opt_model_path = f'{FALLBACK_MODELS_DIR}/best_model_optimized.pkl'
     if Path(opt_model_path).exists():
         try:
@@ -87,7 +87,7 @@ def load_model(symbol, timeframe):
         except:
             pass
     
-    # 优先級3: 原始模型
+    # 优先级3: 原始模型
     try:
         with open(f'{FALLBACK_MODELS_DIR}/best_model.pkl', 'rb') as f:
             model_data['model'] = pickle.load(f)
@@ -102,7 +102,7 @@ def load_model(symbol, timeframe):
         return None
 
 def get_confidence_level(prob):
-    """評估信心級別"""
+    """评估信心级别"""
     if prob > 0.75:
         return "EXCELLENT", 4
     elif prob > 0.65:
@@ -115,7 +115,7 @@ def get_confidence_level(prob):
         return "POOR", 0
 
 def get_action_recommendation(prob, confidence):
-    """給出建議"""
+    """给出建议"""
     if confidence >= 3:
         return "STRONG_BUY"
     elif confidence == 2:
@@ -126,15 +126,15 @@ def get_action_recommendation(prob, confidence):
         return "AVOID"
 
 # ============================================================================
-# API 端點
+# API 端点
 # ============================================================================
 
 @app.route('/predict_bounce', methods=['POST', 'OPTIONS'])
 def predict_bounce():
     """
-    預測反彈成功概率
+    预测反弹成功概率
     
-    POST 請求格式:
+    POST 请求格式:
     {
         "symbol": "BTCUSDT",
         "timeframe": "15m",
@@ -155,22 +155,22 @@ def predict_bounce():
         timeframe = data.get('timeframe', '15m')
         features_dict = data.get('features', {})
         
-        # 驗護幣种和時間框
+        # 验证币种和时间框
         if symbol not in AVAILABLE_SYMBOLS:
             return jsonify({
-                "error": f"不支援的幣种: {symbol}",
+                "error": f"不支持的币种: {symbol}",
                 "available_symbols": AVAILABLE_SYMBOLS,
                 "status": "error"
             }), 400
         
         if timeframe not in AVAILABLE_TIMEFRAMES:
             return jsonify({
-                "error": f"不支援的時間框: {timeframe}",
+                "error": f"不支持的时间框: {timeframe}",
                 "available_timeframes": AVAILABLE_TIMEFRAMES,
                 "status": "error"
             }), 400
         
-        # 加載模型
+        # 加载模型
         model_data = load_model(symbol, timeframe)
         if model_data is None:
             return jsonify({
@@ -184,11 +184,11 @@ def predict_bounce():
         
         if not features_dict:
             return jsonify({
-                "error": "缺少特徵數據",
+                "error": "缺少特征数据",
                 "status": "error"
             }), 400
         
-        # 構建特徵向量
+        # 构建特征向量
         feature_vector = []
         for col in feature_cols:
             feature_vector.append(features_dict.get(col, 0))
@@ -196,15 +196,15 @@ def predict_bounce():
         feature_vector = np.array(feature_vector).reshape(1, -1)
         feature_scaled = scaler.transform(feature_vector)
         
-        # 預測
+        # 预测
         prob = model.predict_proba(feature_scaled)[0]
         success_prob = float(prob[1])
         
-        # 動態閾值
+        # 动态阈值
         threshold = 0.45
         predicted_class = int(success_prob >= threshold)
         
-        # 信心評級
+        # 信心评级
         confidence, confidence_level = get_confidence_level(success_prob)
         action = get_action_recommendation(success_prob, confidence_level)
         
@@ -230,7 +230,7 @@ def predict_bounce():
 
 @app.route('/available_models', methods=['GET', 'OPTIONS'])
 def available_models():
-    """獲取所有可用的幣种和時間框"""
+    """获取所有可用的币种和时间框"""
     
     if request.method == 'OPTIONS':
         return '', 204
@@ -244,7 +244,7 @@ def available_models():
 
 @app.route('/health', methods=['GET', 'OPTIONS'])
 def health():
-    """檢查 API 健康狀態"""
+    """检查 API 健康状态"""
     
     if request.method == 'OPTIONS':
         return '', 204
@@ -266,7 +266,7 @@ def health():
 
 @app.route('/', methods=['GET', 'OPTIONS'])
 def index():
-    """詳表板 API 信息"""
+    """API 信息"""
     
     if request.method == 'OPTIONS':
         return '', 204
@@ -275,9 +275,9 @@ def index():
         "name": "BB Bounce ML Predictor API",
         "version": "2.1 (Multi-Symbol, Multi-Timeframe)",
         "endpoints": {
-            "/predict_bounce": "POST - 預測反彈成功概率",
-            "/available_models": "GET - 獲取可用的幣种和時間框",
-            "/health": "GET - 檢查 API 狀態",
+            "/predict_bounce": "POST - 预测反弹成功概率",
+            "/available_models": "GET - 获取可用的币种和时间框",
+            "/health": "GET - 检查 API 状态",
             "/": "GET - API 信息"
         },
         "available_symbols": AVAILABLE_SYMBOLS,
@@ -286,28 +286,28 @@ def index():
 
 @app.errorhandler(404)
 def not_found(error):
-    return jsonify({"error": "端點未找到", "status": "error"}), 404
+    return jsonify({"error": "端点未找到", "status": "error"}), 404
 
 @app.errorhandler(500)
 def internal_error(error):
-    return jsonify({"error": "服務器內部錯誤", "status": "error"}), 500
+    return jsonify({"error": "服务器内部错误", "status": "error"}), 500
 
 # ============================================================================
-# 啟動
+# 启动
 # ============================================================================
 
 if __name__ == '__main__':
     print(f"\n{'='*60}")
-    print(f"BB反彈 ML 預測 API - 上低版")
+    print(f"BB反弹 ML 预测 API - 上位版")
     print(f"{'='*60}\n")
     
-    print(f✅ 上低模型系統")
-    print(f"   支援幣种: {len(AVAILABLE_SYMBOLS)} 個")
-    print(f"   支援時間框: {len(AVAILABLE_TIMEFRAMES)} 個")
-    print(f"   模型組合: {len(AVAILABLE_SYMBOLS) * len(AVAILABLE_TIMEFRAMES)} 個\n")
+    print("[INFO] 上位模型系统")
+    print(f"[INFO] 支持币种: {len(AVAILABLE_SYMBOLS)} 个")
+    print(f"[INFO] 支持时间框: {len(AVAILABLE_TIMEFRAMES)} 个")
+    print(f"[INFO] 模型组合: {len(AVAILABLE_SYMBOLS) * len(AVAILABLE_TIMEFRAMES)} 个\n")
     
-    print(f"API 地址: http://localhost:5000")
-    print(f"CORS: 已啟用")
-    print(f"\n按 CTRL+C 停止\n")
+    print(f"[INFO] API 地址: http://localhost:5000")
+    print(f"[INFO] CORS: 已启用")
+    print(f"[INFO] 按 CTRL+C 停止\n")
     
     app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
