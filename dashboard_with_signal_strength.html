@@ -426,7 +426,13 @@
                 
                 <div class="control-group">
                     <div class="control-label">刷新間隔 (秒)</div>
-                    <input type="number" id="refresh-interval" value="5" min="1" max="60">
+                    <input type="number" id="refresh-interval" value="15" min="5" max="60">
+                </div>
+                
+                <div class="control-group">
+                    <div class="control-label">計時棄置 (ms)</div>
+                    <input type="number" id="timeout" value="10000" min="5000" max="30000">
+                    <div style="font-size: 9px; color: #6b7280; margin-top: 4px;">單個計時</div>
                 </div>
                 
                 <div class="control-group">
@@ -504,6 +510,7 @@
         ];
         
         let detectorInterval = null;
+        let isUpdating = false;
         
         // UI 更新監聽器
         document.getElementById('touch-threshold').addEventListener('input', (e) => {
@@ -521,24 +528,39 @@
             event.target.classList.add('active');
         }
         
-        // 並行加載單個幣種
-        async function fetchSymbolData(symbol, timeframe, period, threshold, minConfidence) {
+        // 並行加載單個幣種（添加逺時、體體驗證）
+        async function fetchSymbolData(symbol, timeframe, period, threshold, minConfidence, timeout) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeout);
+            
             try {
-                // 並行加載 K 線數據和 ML 預測
-                const chartPromise = fetch(
-                    `${API_BASE}/api/klines?symbol=${symbol}&timeframe=${timeframe}&period=${period}&stddev=2&limit=5`
+                // 並行加載 K 線數據
+                const chartResponse = await fetch(
+                    `${API_BASE}/api/klines?symbol=${symbol}&timeframe=${timeframe}&period=${period}&stddev=2&limit=5`,
+                    { signal: controller.signal }
                 );
                 
-                // 先等 K 線數據
-                const chartResponse = await chartPromise;
-                if (!chartResponse.ok) return null;
+                clearTimeout(timeoutId);
+                
+                if (!chartResponse.ok) {
+                    console.warn(`${symbol}: HTTP ${chartResponse.status}`);
+                    return null;
+                }
                 
                 const chartData = await chartResponse.json();
+                
+                // 體體驗證
+                if (!chartData.stats || typeof chartData.stats.current_price !== 'number') {
+                    console.warn(`${symbol}: 數據不完整`);
+                    return null;
+                }
+                
                 const stats = chartData.stats;
                 const price = stats.current_price;
                 const upper = stats.bb_upper;
                 const lower = stats.bb_lower;
                 const middle = stats.bb_middle;
+                const volatility = stats.volatility || 0;
                 
                 // 計算距離百分比
                 const distToUpper = Math.abs(upper - price) / middle * 100;
@@ -564,14 +586,15 @@
                             bb_lower: lower,
                             bb_middle: middle,
                             rsi: 50,
-                            volatility: stats.volatility
-                        })
+                            volatility: volatility
+                        }),
+                        signal: controller.signal
                     });
                     
                     if (mlResponse.ok) {
                         const mlData = await mlResponse.json();
-                        signal = mlData.signal;
-                        confidence = mlData.confidence;
+                        signal = mlData.signal || '---';
+                        confidence = typeof mlData.confidence === 'number' ? mlData.confidence : 0;
                         
                         // 判斷信號強度
                         if (confidence >= 0.75) {
@@ -598,9 +621,9 @@
                 
                 return {
                     symbol,
-                    price,
-                    upper,
-                    lower,
+                    price: parseFloat(price.toFixed(2)),
+                    upper: parseFloat(upper.toFixed(2)),
+                    lower: parseFloat(lower.toFixed(2)),
                     alertType,
                     isNearUpper,
                     isNearLower,
@@ -609,22 +632,36 @@
                     confidence,
                     signalStrength,
                     signalClass,
-                    volatility: stats.volatility
+                    volatility: parseFloat(volatility.toFixed(2))
                 };
                 
             } catch (e) {
-                console.log(`${symbol} 加載失敗`);
+                if (e.name === 'AbortError') {
+                    console.log(`${symbol}: 逺時`);
+                } else {
+                    console.log(`${symbol}: ${e.message}`);
+                }
                 return null;
+            } finally {
+                clearTimeout(timeoutId);
             }
         }
         
         async function updateDetector() {
+            // 防止並發警報（上一个更新還沒完成就不要起動新的）
+            if (isUpdating) {
+                console.log('上一次更新還未完成，跳過此次');
+                return;
+            }
+            isUpdating = true;
+            
             const timeframe = document.getElementById('timeframe').value;
             const period = document.getElementById('bb-period').value;
             const threshold = parseFloat(document.getElementById('touch-threshold').value);
             const minConfidence = parseInt(document.getElementById('min-confidence').value);
             const showAlertsOnly = document.getElementById('show-alerts-only').checked;
             const sortByStrength = document.getElementById('sort-by-strength').checked;
+            const timeout = parseInt(document.getElementById('timeout').value);
             
             const container = document.getElementById('symbols-container');
             const progressInfo = document.getElementById('progress-info');
@@ -634,8 +671,8 @@
             progressInfo.innerHTML = '已完成: 0/22';
             
             try {
-                // 並行加載所有幣種（關鍵優化）
-                const promises = SYMBOLS.map(symbol => fetchSymbolData(symbol, timeframe, period, threshold, minConfidence));
+                // 並行加載所有幣種
+                const promises = SYMBOLS.map(symbol => fetchSymbolData(symbol, timeframe, period, threshold, minConfidence, timeout));
                 
                 // 使用 Promise.allSettled 來追蹤進度
                 let completedCount = 0;
@@ -667,6 +704,8 @@
                 console.error('更新失敗:', error);
                 setStatus(false);
                 progressInfo.innerHTML = '加載失敗，請重試';
+            } finally {
+                isUpdating = false;
             }
         }
         
@@ -696,19 +735,19 @@
                     <div class="symbol-data">
                         <div class="data-item">
                             <div class="data-label">價格</div>
-                            <div class="data-value">$${data.price.toFixed(2)}</div>
+                            <div class="data-value">$${data.price}</div>
                         </div>
                         <div class="data-item">
                             <div class="data-label">波動性</div>
-                            <div class="data-value">${data.volatility.toFixed(2)}%</div>
+                            <div class="data-value">${data.volatility}%</div>
                         </div>
                         <div class="data-item">
                             <div class="data-label">上軌</div>
-                            <div class="data-value">$${data.upper.toFixed(2)}</div>
+                            <div class="data-value">$${data.upper}</div>
                         </div>
                         <div class="data-item">
                             <div class="data-label">下軌</div>
-                            <div class="data-value">$${data.lower.toFixed(2)}</div>
+                            <div class="data-value">$${data.lower}</div>
                         </div>
                     </div>
                     
@@ -716,7 +755,7 @@
                         <div class="signal-text">${data.signal}</div>
                         <div class="signal-strength ${data.signalClass}">${data.signalStrength}</div>
                         <div class="confidence-bar">
-                            <div class="confidence-fill" style="width: ${data.confidence * 100}%"></div>
+                            <div class="confidence-fill" style="width: ${Math.max(0, Math.min(100, data.confidence * 100))}%"></div>
                         </div>
                         <div style="font-size: 10px; color: #9ca3af; margin-top: 4px;">${(data.confidence * 100).toFixed(1)}% 信心度</div>
                     </div>
@@ -746,10 +785,10 @@
         window.addEventListener('DOMContentLoaded', () => {
             updateDetector();
             
-            // 自動刷新
+            // 自動刷新（改成 5 秒一次，防止並發）
             detectorInterval = setInterval(() => {
                 const interval = parseInt(document.getElementById('refresh-interval').value);
-                console.log(`每 ${interval} 秒自動更新一次`);
+                updateDetector();
             }, parseInt(document.getElementById('refresh-interval').value) * 1000);
         });
         
