@@ -114,7 +114,7 @@
             display: flex;
         }
         
-        /* 上軌道偵測題範 */
+        /* 上軌道偵測頁面 */
         .detector-container {
             display: flex;
             flex-direction: column;
@@ -485,9 +485,9 @@
         const SYMBOLS = [
             'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT',
             'XRPUSDT', 'DOGEUSDT', 'AVAXUSDT', 'MATICUSDT', 'LINKUSDT',
-            'LTCUSDT', 'NEARUSDT', 'ALGOUSDT', 'FTUSDT', 'PEOPLEUSDT',
+            'LTCUSDT', 'NEARUSDT', 'ALGOUSDT',
             'ARBUSDT', 'INJUSDT', 'OPUSDT', 'UNIUSDT', 'SUSHIUSDT',
-            'GRTUSDT', 'AAVEUSDT'
+            'AAVEUSDT'
         ];
         
         let detectorInterval = null;
@@ -575,7 +575,7 @@
                                 signal = mlData.signal;
                                 confidence = mlData.confidence;
                                 
-                                // 判定信號強度
+                                // 判斷信號強度
                                 if (confidence >= 0.75) {
                                     signalStrength = '強信號';
                                     signalClass = 'strength-strong';
@@ -660,7 +660,7 @@
                             <div class="data-value">$${data.price.toFixed(2)}</div>
                         </div>
                         <div class="data-item">
-                            <div class="data-label">揮發性</div>
+                            <div class="data-label">波動性</div>
                             <div class="data-value">${data.volatility.toFixed(2)}%</div>
                         </div>
                         <div class="data-item">
