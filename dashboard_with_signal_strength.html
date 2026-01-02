@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BB Bounce Pro - ML Powered</title>
-    <script src="https://unpkg.com/lightweight-charts@4/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         * {
             margin: 0;
@@ -69,69 +68,90 @@
             50% { opacity: 0.5; }
         }
         
+        .tabs {
+            display: flex;
+            background: #111827;
+            border-bottom: 1px solid #1f3a52;
+            padding: 0 25px;
+            gap: 0;
+        }
+        
+        .tab-button {
+            padding: 12px 20px;
+            background: none;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s;
+        }
+        
+        .tab-button:hover {
+            color: #06b6d4;
+        }
+        
+        .tab-button.active {
+            color: #06b6d4;
+            border-bottom-color: #06b6d4;
+        }
+        
         .container {
             display: flex;
-            height: calc(100vh - 60px);
-            gap: 0;
+            height: calc(100vh - 120px);
         }
         
-        .chart-area {
+        .tab-content {
+            display: none;
             flex: 1;
-            background: #1a2332;
-            border-right: 1px solid #1f3a52;
-            position: relative;
-        }
-        
-        #chart {
-            width: 100%;
-            height: 100%;
-        }
-        
-        .sidebar {
-            width: 340px;
-            background: #111827;
-            display: flex;
-            flex-direction: column;
-            gap: 0;
             overflow-y: auto;
         }
         
-        .sidebar::-webkit-scrollbar {
-            width: 6px;
+        .tab-content.active {
+            display: flex;
         }
         
-        .sidebar::-webkit-scrollbar-thumb {
-            background: #374151;
-            border-radius: 3px;
+        /* 上軌道偵測題範 */
+        .detector-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
         }
         
-        .panel {
-            border-bottom: 1px solid #1f3a52;
-            padding: 15px;
+        .detector-controls {
+            background: #111827;
+            border-right: 1px solid #1f3a52;
+            padding: 20px;
+            width: 300px;
+            overflow-y: auto;
+            flex-shrink: 0;
         }
         
-        .panel-title {
-            font-size: 12px;
-            font-weight: bold;
-            color: #06b6d4;
-            margin-bottom: 12px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+        .detector-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #0c1924;
         }
         
         .control-group {
-            margin-bottom: 12px;
+            margin-bottom: 18px;
         }
         
         .control-label {
             font-size: 10px;
             color: #6b7280;
-            margin-bottom: 4px;
+            margin-bottom: 6px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
         
-        select, input {
+        input[type="range"],
+        input[type="number"],
+        select {
             width: 100%;
             padding: 8px;
             background: #1f2937;
@@ -139,24 +159,22 @@
             border-radius: 4px;
             color: #e5e7eb;
             font-size: 12px;
-            max-height: 200px;
         }
         
-        select:focus, input:focus {
+        input[type="range"] {
+            padding: 0;
+            height: 6px;
+        }
+        
+        input:focus, select:focus {
             outline: none;
             border-color: #06b6d4;
             box-shadow: 0 0 6px rgba(6, 182, 212, 0.2);
         }
         
-        .button-group {
-            display: flex;
-            gap: 8px;
-            margin-top: 12px;
-        }
-        
         button {
-            flex: 1;
-            padding: 9px;
+            width: 100%;
+            padding: 10px;
             border: 1px solid #374151;
             border-radius: 4px;
             background: #1f2937;
@@ -169,26 +187,10 @@
             transition: all 0.2s;
         }
         
-        button:hover:not(:disabled) {
+        button:hover {
             background: #374151;
             border-color: #06b6d4;
             box-shadow: 0 0 8px rgba(6, 182, 212, 0.15);
-        }
-        
-        button.active {
-            background: #10b981;
-            border-color: #10b981;
-            color: white;
-        }
-        
-        button.predict {
-            background: rgba(251, 146, 60, 0.1);
-            border-color: #fb923c;
-            color: #fb923c;
-        }
-        
-        button.predict:hover:not(:disabled) {
-            background: rgba(251, 146, 60, 0.2);
         }
         
         button:disabled {
@@ -196,16 +198,95 @@
             cursor: not-allowed;
         }
         
-        .data-row {
+        /* 幣種清單表 */
+        .symbols-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+        }
+        
+        .symbol-card {
+            background: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 6px;
+            padding: 15px;
+            transition: all 0.3s;
+        }
+        
+        .symbol-card:hover {
+            border-color: #06b6d4;
+            box-shadow: 0 0 12px rgba(6, 182, 212, 0.1);
+        }
+        
+        .symbol-card.alert-upper {
+            border-color: #ef4444;
+            background: rgba(239, 68, 68, 0.05);
+        }
+        
+        .symbol-card.alert-lower {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.05);
+        }
+        
+        .symbol-header {
             display: flex;
             justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #374151;
+        }
+        
+        .symbol-name {
+            font-size: 14px;
+            font-weight: bold;
+            color: #06b6d4;
+        }
+        
+        .alert-badge {
+            font-size: 9px;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        
+        .alert-upper {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid #ef4444;
+        }
+        
+        .alert-lower {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+            border: 1px solid #10b981;
+        }
+        
+        .no-alert {
+            background: rgba(107, 114, 128, 0.2);
+            color: #9ca3af;
+            border: 1px solid #6b7280;
+        }
+        
+        .symbol-data {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 12px;
             font-size: 11px;
-            padding: 6px 0;
-            color: #d1d5db;
+        }
+        
+        .data-item {
+            display: flex;
+            flex-direction: column;
         }
         
         .data-label {
-            color: #9ca3af;
+            color: #6b7280;
+            margin-bottom: 3px;
+            text-transform: uppercase;
+            font-size: 9px;
+            letter-spacing: 0.5px;
         }
         
         .data-value {
@@ -216,45 +297,18 @@
         
         .signal-box {
             background: rgba(6, 182, 212, 0.05);
-            border: 2px solid #06b6d4;
-            border-radius: 6px;
-            padding: 12px;
-            margin-top: 10px;
+            border: 1px solid #06b6d4;
+            border-radius: 4px;
+            padding: 10px;
             text-align: center;
+            margin-bottom: 10px;
         }
         
         .signal-text {
-            font-size: 24px;
+            font-size: 16px;
             font-weight: bold;
             margin-bottom: 4px;
             font-family: 'Courier New', monospace;
-        }
-        
-        .signal-strength {
-            font-size: 12px;
-            font-weight: bold;
-            margin-bottom: 8px;
-            padding: 4px 8px;
-            border-radius: 3px;
-            display: inline-block;
-        }
-        
-        .strength-strong {
-            background: rgba(34, 197, 94, 0.2);
-            color: #22c55e;
-            border: 1px solid #22c55e;
-        }
-        
-        .strength-medium {
-            background: rgba(245, 158, 11, 0.2);
-            color: #f59e0b;
-            border: 1px solid #f59e0b;
-        }
-        
-        .strength-weak {
-            background: rgba(239, 68, 68, 0.2);
-            color: #ef4444;
-            border: 1px solid #ef4444;
         }
         
         .signal-buy {
@@ -275,10 +329,28 @@
             background: rgba(245, 158, 11, 0.05);
         }
         
-        .signal-info {
-            font-size: 10px;
-            color: #9ca3af;
-            margin-top: 6px;
+        .signal-strength {
+            font-size: 11px;
+            font-weight: bold;
+            margin-top: 4px;
+            padding: 3px 6px;
+            border-radius: 3px;
+            display: inline-block;
+        }
+        
+        .strength-strong {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+        }
+        
+        .strength-medium {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+        }
+        
+        .strength-weak {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
         }
         
         .confidence-bar {
@@ -286,8 +358,8 @@
             height: 4px;
             background: #374151;
             border-radius: 2px;
-            margin-top: 8px;
             overflow: hidden;
+            margin-top: 6px;
         }
         
         .confidence-fill {
@@ -297,11 +369,24 @@
             transition: width 0.3s;
         }
         
-        .empty-state {
+        .loading {
             text-align: center;
             color: #6b7280;
-            font-size: 11px;
-            padding: 20px 0;
+            padding: 20px;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #374151;
+            border-top-color: #06b6d4;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -317,92 +402,78 @@
         </div>
     </div>
     
+    <div class="tabs">
+        <button class="tab-button active" onclick="switchTab('detector')">BB軌道偵測</button>
+        <button class="tab-button" onclick="switchTab('chart')">單幣種圖表</button>
+    </div>
+    
     <div class="container">
-        <div class="chart-area">
-            <div id="chart"></div>
+        <!-- BB軌道偵測頁面 -->
+        <div id="detector" class="tab-content active">
+            <div class="detector-controls">
+                <div class="panel-title" style="font-size: 12px; font-weight: bold; color: #06b6d4; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px;">參數調整</div>
+                
+                <div class="control-group">
+                    <div class="control-label">刷新間隔 (秒)</div>
+                    <input type="number" id="refresh-interval" value="5" min="1" max="60">
+                </div>
+                
+                <div class="control-group">
+                    <div class="control-label">觸碰距離 (%)</div>
+                    <input type="range" id="touch-threshold" value="2" min="0.5" max="5" step="0.1">
+                    <div style="font-size: 10px; color: #6b7280; margin-top: 4px;">當前: <span id="touch-threshold-display">2.0</span>%</div>
+                </div>
+                
+                <div class="control-group">
+                    <div class="control-label">最小信心度過濾</div>
+                    <input type="range" id="min-confidence" value="50" min="0" max="100" step="5">
+                    <div style="font-size: 10px; color: #6b7280; margin-top: 4px;"><span id="min-confidence-display">50</span>%</div>
+                </div>
+                
+                <div class="control-group">
+                    <div class="control-label">時間框架</div>
+                    <select id="timeframe" onchange="updateDetector()">
+                        <option value="15m">15 分鐘</option>
+                        <option value="1h" selected>1 小時</option>
+                        <option value="4h">4 小時</option>
+                        <option value="1d">1 天</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <div class="control-label">BB 週期</div>
+                    <input type="number" id="bb-period" value="20" min="10" max="50">
+                </div>
+                
+                <div class="control-group">
+                    <button onclick="updateDetector()" style="background: rgba(251, 146, 60, 0.1); border-color: #fb923c; color: #fb923c; margin-top: 10px;">🔄 更新數據</button>
+                </div>
+                
+                <div class="control-group" style="margin-top: 20px; border-top: 1px solid #374151; padding-top: 15px;">
+                    <div class="control-label" style="color: #9ca3af;">顯示選項</div>
+                    <label style="display: flex; align-items: center; gap: 8px; color: #d1d5db; font-size: 11px; margin: 8px 0; cursor: pointer;">
+                        <input type="checkbox" id="show-alerts-only" checked>
+                        <span>僅顯示警報</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; color: #d1d5db; font-size: 11px; margin: 8px 0; cursor: pointer;">
+                        <input type="checkbox" id="sort-by-strength">
+                        <span>按信號強度排序</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="detector-content">
+                <div id="symbols-container" class="symbols-grid">
+                    <div class="loading"><div class="spinner"></div> 正在加載數據...</div>
+                </div>
+            </div>
         </div>
         
-        <div class="sidebar">
-            <!-- Settings Panel -->
-            <div class="panel">
-                <div class="panel-title">Settings</div>
-                
-                <div class="control-group">
-                    <div class="control-label">Symbol</div>
-                    <select id="symbol" onchange="changeSymbol()">
-                        <option value="BTCUSDT">BTC/USDT</option>
-                        <option value="ETHUSDT">ETH/USDT</option>
-                        <option value="BNBUSDT">BNB/USDT</option>
-                        <option value="SOLUSDT">SOL/USDT</option>
-                        <option value="ADAUSDT">ADA/USDT</option>
-                        <option value="XRPUSDT">XRP/USDT</option>
-                        <option value="DOGEUSDT">DOGE/USDT</option>
-                        <option value="AVAXUSDT">AVAX/USDT</option>
-                        <option value="MATICUSDT">MATIC/USDT</option>
-                        <option value="LINKUSDT">LINK/USDT</option>
-                        <option value="LTCUSDT">LTC/USDT</option>
-                        <option value="NEARUSDT">NEAR/USDT</option>
-                        <option value="ALGOUSDT">ALGO/USDT</option>
-                        <option value="FTUSDT">FT/USDT</option>
-                        <option value="PEOPLEUSDT">PEOPLE/USDT</option>
-                        <option value="ARBUSDT">ARB/USDT</option>
-                        <option value="INJUSDT">INJ/USDT</option>
-                        <option value="OPUSDT">OP/USDT</option>
-                        <option value="UNIUSDT">UNI/USDT</option>
-                        <option value="SUSHIUSDT">SUSHI/USDT</option>
-                        <option value="GRTUSDT">GRT/USDT</option>
-                        <option value="AAVEUSDT">AAVE/USDT</option>
-                    </select>
-                </div>
-                
-                <div class="control-group">
-                    <div class="control-label">Timeframe</div>
-                    <select id="timeframe" onchange="changeTimeframe()">
-                        <option value="15m">15 Minutes</option>
-                        <option value="1h" selected>1 Hour</option>
-                        <option value="4h">4 Hours</option>
-                        <option value="1d">1 Day</option>
-                    </select>
-                </div>
-                
-                <div class="control-group">
-                    <div class="control-label">BB Period</div>
-                    <input type="number" id="bb-period" value="20" min="10" max="50" onchange="reload()">
-                </div>
-                
-                <div class="button-group">
-                    <button id="auto-btn" onclick="toggleAuto()">Auto: OFF</button>
-                    <button onclick="reset()">Reset</button>
-                </div>
-            </div>
-            
-            <!-- Live Data Panel -->
-            <div class="panel">
-                <div class="panel-title">Live Data</div>
-                <div id="error-msg"></div>
-                <div class="data-row">
-                    <span class="data-label">Price</span>
-                    <span class="data-value" id="price">-</span>
-                </div>
-                <div class="data-row">
-                    <span class="data-label">Upper Band</span>
-                    <span class="data-value" id="upper">-</span>
-                </div>
-                <div class="data-row">
-                    <span class="data-label">Lower Band</span>
-                    <span class="data-value" id="lower">-</span>
-                </div>
-                <div class="data-row">
-                    <span class="data-label">Volatility</span>
-                    <span class="data-value" id="vol">-</span>
-                </div>
-            </div>
-            
-            <!-- ML Prediction Panel -->
-            <div class="panel">
-                <div class="panel-title">ML Prediction</div>
-                <button class="predict" onclick="runMLPrediction()" style="width: 100%; margin-top: 0; margin-bottom: 12px;">Run Prediction</button>
-                <div id="prediction-box" class="empty-state">Click to predict</div>
+        <!-- 單幣種圖表頁面 -->
+        <div id="chart" class="tab-content">
+            <div style="padding: 20px; text-align: center; color: #6b7280;">
+                <p style="margin-bottom: 20px;">圖表功能已禁用。請使用上方「BB軌道偵測」頁面查看所有幣種的實時狀況。</p>
+                <p style="font-size: 12px; color: #9ca3af;">此版本著重於快速掃描所有幣種的觸碰狀態和 ML 信號。</p>
             </div>
         </div>
     </div>
@@ -411,134 +482,221 @@
         const API_BASE = 'http://localhost:5001';
         const ML_API = 'http://localhost:5002';
         
-        let chart = null;
-        let candleSeries = null;
-        let upperSeries = null;
-        let lowerSeries = null;
-        let autoEnabled = false;
-        let autoInterval = null;
-        let currentData = null;
+        const SYMBOLS = [
+            'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT',
+            'XRPUSDT', 'DOGEUSDT', 'AVAXUSDT', 'MATICUSDT', 'LINKUSDT',
+            'LTCUSDT', 'NEARUSDT', 'ALGOUSDT', 'FTUSDT', 'PEOPLEUSDT',
+            'ARBUSDT', 'INJUSDT', 'OPUSDT', 'UNIUSDT', 'SUSHIUSDT',
+            'GRTUSDT', 'AAVEUSDT'
+        ];
         
-        function initChart() {
-            const container = document.getElementById('chart');
+        let detectorInterval = null;
+        let allSymbolsData = {};
+        
+        // UI 更新監聽器
+        document.getElementById('touch-threshold').addEventListener('input', (e) => {
+            document.getElementById('touch-threshold-display').textContent = parseFloat(e.target.value).toFixed(1);
+        });
+        
+        document.getElementById('min-confidence').addEventListener('input', (e) => {
+            document.getElementById('min-confidence-display').textContent = e.target.value;
+        });
+        
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
+            document.getElementById(tab).classList.add('active');
+            event.target.classList.add('active');
+        }
+        
+        async function updateDetector() {
+            const timeframe = document.getElementById('timeframe').value;
+            const period = document.getElementById('bb-period').value;
+            const threshold = parseFloat(document.getElementById('touch-threshold').value);
+            const minConfidence = parseInt(document.getElementById('min-confidence').value);
+            const showAlertsOnly = document.getElementById('show-alerts-only').checked;
+            const sortByStrength = document.getElementById('sort-by-strength').checked;
+            
+            const container = document.getElementById('symbols-container');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div> 正在掃描所有幣種...</div>';
             
             try {
-                chart = LightweightCharts.createChart(container, {
-                    layout: {
-                        background: { color: '#1a2332' },
-                        textColor: '#9ca3af'
-                    },
-                    width: container.clientWidth,
-                    height: container.clientHeight,
-                    timeScale: {
-                        timeVisible: true,
-                        secondsVisible: false
-                    },
-                    grid: {
-                        horzLines: { color: '#2d3a4a' },
-                        vertLines: { color: '#2d3a4a' }
+                const cardsData = [];
+                
+                for (const symbol of SYMBOLS) {
+                    try {
+                        // 獲取 K 線數據
+                        const chartResponse = await fetch(
+                            `${API_BASE}/api/klines?symbol=${symbol}&timeframe=${timeframe}&period=${period}&stddev=2&limit=5`
+                        );
+                        
+                        if (!chartResponse.ok) continue;
+                        
+                        const chartData = await chartResponse.json();
+                        const stats = chartData.stats;
+                        const price = stats.current_price;
+                        const upper = stats.bb_upper;
+                        const lower = stats.bb_lower;
+                        const middle = stats.bb_middle;
+                        
+                        // 計算距離百分比
+                        const distToUpper = Math.abs(upper - price) / middle * 100;
+                        const distToLower = Math.abs(price - lower) / middle * 100;
+                        const isNearUpper = distToUpper <= threshold;
+                        const isNearLower = distToLower <= threshold;
+                        
+                        // 如果不是警報且只顯示警報，跳過
+                        if (showAlertsOnly && !isNearUpper && !isNearLower) continue;
+                        
+                        // 獲取 ML 預測
+                        let signal = '---';
+                        let confidence = 0;
+                        let signalStrength = '未知';
+                        let signalClass = '';
+                        
+                        try {
+                            const mlResponse = await fetch(`${ML_API}/api/predict`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    symbol: symbol,
+                                    timeframe: timeframe,
+                                    close: price,
+                                    bb_upper: upper,
+                                    bb_lower: lower,
+                                    bb_middle: middle,
+                                    rsi: 50,
+                                    volatility: stats.volatility
+                                })
+                            });
+                            
+                            if (mlResponse.ok) {
+                                const mlData = await mlResponse.json();
+                                signal = mlData.signal;
+                                confidence = mlData.confidence;
+                                
+                                // 判定信號強度
+                                if (confidence >= 0.75) {
+                                    signalStrength = '強信號';
+                                    signalClass = 'strength-strong';
+                                } else if (confidence >= 0.60) {
+                                    signalStrength = '中信號';
+                                    signalClass = 'strength-medium';
+                                } else {
+                                    signalStrength = '弱信號';
+                                    signalClass = 'strength-weak';
+                                }
+                                
+                                // 過濾最小信心度
+                                if (confidence * 100 < minConfidence) continue;
+                            }
+                        } catch (e) {
+                            console.log(`${symbol} ML 預測失敗`);
+                        }
+                        
+                        // 構建卡片數據
+                        const alertType = isNearUpper ? 'upper' : (isNearLower ? 'lower' : 'none');
+                        const alertDistance = Math.min(distToUpper, distToLower);
+                        
+                        cardsData.push({
+                            symbol,
+                            price,
+                            upper,
+                            lower,
+                            alertType,
+                            isNearUpper,
+                            isNearLower,
+                            alertDistance,
+                            signal,
+                            confidence,
+                            signalStrength,
+                            signalClass,
+                            volatility: stats.volatility
+                        });
+                        
+                    } catch (e) {
+                        console.log(`${symbol} 加載失敗`);
                     }
-                });
-                
-                candleSeries = chart.addCandlestickSeries({
-                    upColor: '#10b981',
-                    downColor: '#ef4444',
-                    borderUpColor: '#10b981',
-                    borderDownColor: '#ef4444',
-                    wickUpColor: '#10b981',
-                    wickDownColor: '#ef4444'
-                });
-                
-                upperSeries = chart.addLineSeries({
-                    color: '#ef4444',
-                    lineWidth: 1
-                });
-                
-                lowerSeries = chart.addLineSeries({
-                    color: '#10b981',
-                    lineWidth: 1
-                });
-                
-                loadChart();
-                
-            } catch (error) {
-                console.error('Chart error:', error);
-                setStatus(false);
-            }
-        }
-        
-        async function loadChart() {
-            const sym = document.getElementById('symbol').value;
-            const tf = document.getElementById('timeframe').value;
-            const p = document.getElementById('bb-period').value;
-            
-            try {
-                const response = await fetch(
-                    `${API_BASE}/api/klines?symbol=${sym}&timeframe=${tf}&period=${p}&stddev=2&limit=200`
-                );
-                
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                
-                const data = await response.json();
-                currentData = data;
-                
-                if (candleSeries) {
-                    candleSeries.setData(data.candles);
-                    upperSeries.setData(data.bb_upper);
-                    lowerSeries.setData(data.bb_lower);
-                    chart.timeScale().fitContent();
                 }
                 
-                updateData(data);
+                // 排序
+                if (sortByStrength) {
+                    cardsData.sort((a, b) => b.confidence - a.confidence);
+                } else {
+                    cardsData.sort((a, b) => a.alertDistance - b.alertDistance);
+                }
+                
+                // 渲染卡片
+                renderCards(cardsData);
                 setStatus(true);
-                
-            } catch (error) {
-                console.error('Load error:', error);
-                setStatus(false);
-            }
-        }
-        
-        async function updateCandle() {
-            const sym = document.getElementById('symbol').value;
-            const tf = document.getElementById('timeframe').value;
-            const p = document.getElementById('bb-period').value;
-            
-            try {
-                const response = await fetch(
-                    `${API_BASE}/api/klines?symbol=${sym}&timeframe=${tf}&period=${p}&stddev=2&limit=2`
-                );
-                
-                if (!response.ok) return;
-                
-                const data = await response.json();
-                currentData = data;
-                
-                if (data.candles.length > 0) {
-                    const lastCandle = data.candles[data.candles.length - 1];
-                    candleSeries.update(lastCandle);
-                }
-                
-                if (data.bb_upper.length > 0) {
-                    upperSeries.update(data.bb_upper[data.bb_upper.length - 1]);
-                }
-                if (data.bb_lower.length > 0) {
-                    lowerSeries.update(data.bb_lower[data.bb_lower.length - 1]);
-                }
-                
-                updateData(data);
                 updateTime();
                 
             } catch (error) {
-                console.log('Auto-update failed');
+                console.error('更新失敗:', error);
+                setStatus(false);
             }
         }
         
-        function updateData(data) {
-            const s = data.stats;
-            document.getElementById('price').textContent = '$' + s.current_price.toFixed(2);
-            document.getElementById('upper').textContent = '$' + s.bb_upper.toFixed(2);
-            document.getElementById('lower').textContent = '$' + s.bb_lower.toFixed(2);
-            document.getElementById('vol').textContent = s.volatility.toFixed(2) + '%';
+        function renderCards(cardsData) {
+            const container = document.getElementById('symbols-container');
+            
+            if (cardsData.length === 0) {
+                container.innerHTML = '<div class="loading">沒有找到符合條件的幣種</div>';
+                return;
+            }
+            
+            container.innerHTML = cardsData.map(data => `
+                <div class="symbol-card alert-${data.alertType}">
+                    <div class="symbol-header">
+                        <div class="symbol-name">${data.symbol.replace('USDT', '')}</div>
+                        <div class="alert-badge ${data.alertType === 'none' ? 'no-alert' : (data.alertType === 'upper' ? 'alert-upper' : 'alert-lower')}">
+                            ${data.alertType === 'upper' ? '⬆️ 上軌' : (data.alertType === 'lower' ? '⬇️ 下軌' : '正常')}
+                        </div>
+                    </div>
+                    
+                    <div class="symbol-data">
+                        <div class="data-item">
+                            <div class="data-label">價格</div>
+                            <div class="data-value">$${data.price.toFixed(2)}</div>
+                        </div>
+                        <div class="data-item">
+                            <div class="data-label">揮發性</div>
+                            <div class="data-value">${data.volatility.toFixed(2)}%</div>
+                        </div>
+                        <div class="data-item">
+                            <div class="data-label">上軌</div>
+                            <div class="data-value">$${data.upper.toFixed(2)}</div>
+                        </div>
+                        <div class="data-item">
+                            <div class="data-label">下軌</div>
+                            <div class="data-value">$${data.lower.toFixed(2)}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="signal-box signal-${data.signal.toLowerCase()}">
+                        <div class="signal-text">${data.signal}</div>
+                        <div class="signal-strength ${data.signalClass}">${data.signalStrength}</div>
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" style="width: ${data.confidence * 100}%"></div>
+                        </div>
+                        <div style="font-size: 10px; color: #9ca3af; margin-top: 4px;">${(data.confidence * 100).toFixed(1)}% 信心度</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function setStatus(ok) {
+            const ind = document.getElementById('status-indicator');
+            if (ok) {
+                ind.className = 'status';
+                ind.innerHTML = '<div class="status-dot"></div><span>已連接</span>';
+            } else {
+                ind.className = 'status';
+                ind.style.background = 'rgba(239, 68, 68, 0.1)';
+                ind.style.borderColor = '#ef4444';
+                ind.style.color = '#ef4444';
+                ind.innerHTML = '<div class="status-dot" style="background: #ef4444;"></div><span>連接失敗</span>';
+            }
         }
         
         function updateTime() {
@@ -546,140 +704,18 @@
             document.getElementById('update-time').textContent = now.toLocaleTimeString();
         }
         
-        function getSignalStrength(confidence) {
-            if (confidence >= 0.75) {
-                return { level: '強信號', class: 'strength-strong' };
-            } else if (confidence >= 0.60) {
-                return { level: '中信號', class: 'strength-medium' };
-            } else {
-                return { level: '弱信號', class: 'strength-weak' };
-            }
-        }
-        
-        async function runMLPrediction() {
-            const btn = event.target;
-            btn.disabled = true;
-            btn.textContent = 'Predicting...';
-            
-            try {
-                if (!currentData) {
-                    throw new Error('No data loaded');
-                }
-                
-                const sym = document.getElementById('symbol').value;
-                const tf = document.getElementById('timeframe').value;
-                const s = currentData.stats;
-                
-                const response = await fetch(`${ML_API}/api/predict`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        symbol: sym,
-                        timeframe: tf,
-                        close: s.current_price,
-                        bb_upper: s.bb_upper,
-                        bb_lower: s.bb_lower,
-                        bb_middle: s.bb_middle,
-                        rsi: 50,
-                        volatility: s.volatility
-                    })
-                });
-                
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                
-                const result = await response.json();
-                const strength = getSignalStrength(result.confidence);
-                
-                let html = `<div class="signal-box signal-${result.signal.toLowerCase()}">`;
-                html += `<div class="signal-text">${result.signal}</div>`;
-                html += `<div class="signal-strength ${strength.class}">${strength.level}</div>`;
-                html += `<div class="signal-info">`;
-                html += `Model: ${result.model}<br>`;
-                html += `Type: ${result.model_type}<br>`;
-                html += `Confidence: ${(result.confidence * 100).toFixed(1)}%`;
-                html += `</div>`;
-                html += `<div class="confidence-bar">`;
-                html += `<div class="confidence-fill" style="width: ${result.confidence * 100}%"></div>`;
-                html += `</div>`;
-                html += `</div>`;
-                
-                document.getElementById('prediction-box').innerHTML = html;
-                
-            } catch (error) {
-                console.error('Prediction error:', error);
-                const box = document.getElementById('prediction-box');
-                box.innerHTML = `<div class="empty-state">Error: ${error.message}</div>`;
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'Run Prediction';
-            }
-        }
-        
-        function changeSymbol() {
-            if (autoEnabled) toggleAuto();
-            loadChart();
-        }
-        
-        function changeTimeframe() {
-            if (autoEnabled) toggleAuto();
-            loadChart();
-        }
-        
-        function reload() {
-            if (autoEnabled) toggleAuto();
-            loadChart();
-        }
-        
-        function toggleAuto() {
-            autoEnabled = !autoEnabled;
-            const btn = document.getElementById('auto-btn');
-            
-            if (autoEnabled) {
-                btn.classList.add('active');
-                btn.textContent = 'Auto: ON';
-                autoInterval = setInterval(updateCandle, 1000);
-            } else {
-                btn.classList.remove('active');
-                btn.textContent = 'Auto: OFF';
-                if (autoInterval) clearInterval(autoInterval);
-            }
-        }
-        
-        function reset() {
-            document.getElementById('symbol').value = 'BTCUSDT';
-            document.getElementById('timeframe').value = '1h';
-            document.getElementById('bb-period').value = '20';
-            changeSymbol();
-        }
-        
-        function setStatus(ok) {
-            const ind = document.getElementById('status-indicator');
-            if (ok) {
-                ind.className = 'status';
-                ind.innerHTML = '<div class="status-dot"></div><span>Connected</span>';
-            } else {
-                ind.className = 'status';
-                ind.style.background = 'rgba(239, 68, 68, 0.1)';
-                ind.style.borderColor = '#ef4444';
-                ind.style.color = '#ef4444';
-                ind.innerHTML = '<div class="status-dot" style="background: #ef4444;"></div><span>Error</span>';
-            }
-        }
-        
         window.addEventListener('DOMContentLoaded', () => {
-            initChart();
-            updateTime();
+            updateDetector();
+            
+            // 自動刷新
+            detectorInterval = setInterval(() => {
+                const interval = parseInt(document.getElementById('refresh-interval').value);
+                console.log(`每 ${interval} 秒自動更新一次`);
+            }, parseInt(document.getElementById('refresh-interval').value) * 1000);
         });
         
         window.addEventListener('beforeunload', () => {
-            if (autoInterval) clearInterval(autoInterval);
-        });
-        
-        window.addEventListener('resize', () => {
-            if (chart) {
-                const container = document.getElementById('chart');
-                chart.applyOptions({ width: container.clientWidth });
-            }
+            if (detectorInterval) clearInterval(detectorInterval);
         });
     </script>
 </body>
