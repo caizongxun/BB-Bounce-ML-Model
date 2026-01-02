@@ -114,7 +114,7 @@
             display: flex;
         }
         
-        /* 上軌道偵測頁面 */
+        /* BB軌道偵測頁面 */
         .detector-container {
             display: flex;
             flex-direction: column;
@@ -482,12 +482,13 @@
         const API_BASE = 'http://localhost:5001';
         const ML_API = 'http://localhost:5002';
         
+        // 另使用已訓練的 22 種幣種
         const SYMBOLS = [
-            'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT',
-            'XRPUSDT', 'DOGEUSDT', 'AVAXUSDT', 'MATICUSDT', 'LINKUSDT',
-            'LTCUSDT', 'NEARUSDT', 'ALGOUSDT',
-            'ARBUSDT', 'INJUSDT', 'OPUSDT', 'UNIUSDT', 'SUSHIUSDT',
-            'AAVEUSDT'
+            'AAVESTDT', 'ADAUSDT', 'ALGOUSDT', 'ARBUSDT', 'ATOMUSDT',
+            'AVAXUSDT', 'BCHUSDT', 'BNBUSDT', 'BTCUSDT', 'DOGEUSDT',
+            'DOTUSDT', 'ETCUSDT', 'ETHUSDT', 'FILUSDT', 'LINKUSDT',
+            'LTCUSDT', 'MATICUSDT', 'NEARUSDT', 'OPUSDT', 'SOLUSDT',
+            'UNIUSDT', 'XRPUSDT'
         ];
         
         let detectorInterval = null;
