@@ -150,26 +150,27 @@ def add_technical_indicators(df):
     
     df = df.copy()
     
-    # Bollinger Bands
-    bb = ta.volatility.bollinger_bands(df['close'], window=20, window_dev=2)
-    df['bb_upper'] = bb.iloc[:, 0]
-    df['bb_middle'] = bb.iloc[:, 1]
-    df['bb_lower'] = bb.iloc[:, 2]
+    # Bollinger Bands - 修復API調用
+    bb_indicator = ta.volatility.BollingerBands(df['close'], window=20, window_dev=2)
+    df['bb_upper'] = bb_indicator.bollinger_hband()
+    df['bb_middle'] = bb_indicator.bollinger_mavg()
+    df['bb_lower'] = bb_indicator.bollinger_lband()
     df['bb_width'] = df['bb_upper'] - df['bb_lower']
     df['bb_width_ma'] = df['bb_width'].rolling(20).mean()
     df['bb_width_ratio'] = df['bb_width'] / (df['bb_width_ma'] + 0.0001)
     
     # RSI
-    df['rsi'] = ta.momentum.rsi(df['close'], window=14)
+    df['rsi'] = ta.momentum.RSIIndicator(df['close'], window=14).rsi()
     
     # MACD
-    macd = ta.trend.macd(df['close'])
-    df['macd'] = macd.iloc[:, 0]
-    df['macd_signal'] = macd.iloc[:, 1]
-    df['macd_hist'] = macd.iloc[:, 2]
+    macd_indicator = ta.trend.MACD(df['close'])
+    df['macd'] = macd_indicator.macd()
+    df['macd_signal'] = macd_indicator.macd_signal()
+    df['macd_hist'] = macd_indicator.macd_diff()
     
     # ATR
-    df['atr'] = ta.volatility.average_true_range(df['high'], df['low'], df['close'], window=14)
+    atr_indicator = ta.volatility.AverageTrueRange(df['high'], df['low'], df['close'], window=14)
+    df['atr'] = atr_indicator.average_true_range()
     df['atr_ratio'] = df['atr'] / df['close']
     
     # 成交量
@@ -181,8 +182,8 @@ def add_technical_indicators(df):
     df['momentum'] = df['close'] - df['close'].shift(5)
     
     # 移動平均線
-    df['ema9'] = ta.trend.ema_indicator(df['close'], window=9)
-    df['ema21'] = ta.trend.ema_indicator(df['close'], window=21)
+    df['ema9'] = ta.trend.EMAIndicator(df['close'], window=9).ema_indicator()
+    df['ema21'] = ta.trend.EMAIndicator(df['close'], window=21).ema_indicator()
     df['sma20'] = df['close'].rolling(20).mean()
     df['sma200'] = df['close'].rolling(200).mean()
     
@@ -195,8 +196,8 @@ def add_technical_indicators(df):
     df['high_low_range'] = df['high'] - df['low']
     
     # ADX
-    adx = ta.trend.adx(df['high'], df['low'], df['close'], window=14)
-    df['adx'] = adx
+    adx_indicator = ta.trend.ADXIndicator(df['high'], df['low'], df['close'], window=14)
+    df['adx'] = adx_indicator.adx()
     
     # 處理 NaN
     df = df.fillna(method='bfill').fillna(method='ffill')
