@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BB Bounce Pro - ML Powered</title>
+    <script src="https://unpkg.com/lightweight-charts@4/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            width: 100%;
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0c1924;
+            color: #d1d5db;
+        }
+        
+        .header {
+            background: #111827;
+            border-bottom: 1px solid #1f3a52;
+            padding: 15px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            font-weight: bold;
+            color: #06b6d4;
+            margin: 0;
+        }
+        
+        .header-right {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            font-size: 12px;
+            color: #9ca3af;
+        }
+        
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid #10b981;
+            border-radius: 4px;
+            color: #10b981;
+            font-size: 11px;
+        }
+        
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .container {
+            display: flex;
+            height: calc(100vh - 60px);
+            gap: 0;
+        }
+        
+        .chart-area {
+            flex: 1;
+            background: #1a2332;
+            border-right: 1px solid #1f3a52;
+            position: relative;
+        }
+        
+        #chart {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .sidebar {
+            width: 340px;
+            background: #111827;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            overflow-y: auto;
+        }
+        
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .sidebar::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 3px;
+        }
+        
+        .panel {
+            border-bottom: 1px solid #1f3a52;
+            padding: 15px;
+        }
+        
+        .panel-title {
+            font-size: 12px;
+            font-weight: bold;
+            color: #06b6d4;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .control-group {
+            margin-bottom: 12px;
+        }
+        
+        .control-label {
+            font-size: 10px;
+            color: #6b7280;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        select, input {
+            width: 100%;
+            padding: 8px;
+            background: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 4px;
+            color: #e5e7eb;
+            font-size: 12px;
+        }
+        
+        select:focus, input:focus {
+            outline: none;
+            border-color: #06b6d4;
+            box-shadow: 0 0 6px rgba(6, 182, 212, 0.2);
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 9px;
+            border: 1px solid #374151;
+            border-radius: 4px;
+            background: #1f2937;
+            color: #06b6d4;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.2s;
+        }
+        
+        button:hover:not(:disabled) {
+            background: #374151;
+            border-color: #06b6d4;
+            box-shadow: 0 0 8px rgba(6, 182, 212, 0.15);
+        }
+        
+        button.active {
+            background: #10b981;
+            border-color: #10b981;
+            color: white;
+        }
+        
+        button.predict {
+            background: rgba(251, 146, 60, 0.1);
+            border-color: #fb923c;
+            color: #fb923c;
+        }
+        
+        button.predict:hover:not(:disabled) {
+            background: rgba(251, 146, 60, 0.2);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            padding: 6px 0;
+            color: #d1d5db;
+        }
+        
+        .data-label {
+            color: #9ca3af;
+        }
+        
+        .data-value {
+            color: #10b981;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .signal-box {
+            background: rgba(6, 182, 212, 0.05);
+            border: 2px solid #06b6d4;
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 10px;
+            text-align: center;
+        }
+        
+        .signal-text {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .signal-buy {
+            color: #10b981;
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.05);
+        }
+        
+        .signal-sell {
+            color: #ef4444;
+            border-color: #ef4444;
+            background: rgba(239, 68, 68, 0.05);
+        }
+        
+        .signal-hold {
+            color: #f59e0b;
+            border-color: #f59e0b;
+            background: rgba(245, 158, 11, 0.05);
+        }
+        
+        .signal-info {
+            font-size: 10px;
+            color: #9ca3af;
+        }
+        
+        .confidence-bar {
+            width: 100%;
+            height: 4px;
+            background: #374151;
+            border-radius: 2px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        
+        .confidence-fill {
+            height: 100%;
+            background: #10b981;
+            width: 50%;
+            transition: width 0.3s;
+        }
+        
+        .empty-state {
+            text-align: center;
+            color: #6b7280;
+            font-size: 11px;
+            padding: 20px 0;
+        }
+        
+        .debug-info {
+            background: rgba(100, 116, 139, 0.1);
+            border: 1px solid #64748b;
+            border-radius: 4px;
+            padding: 8px;
+            margin-top: 8px;
+            font-size: 9px;
+            color: #cbd5e1;
+            max-height: 100px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>BB Bounce Pro - ML Powered</h1>
+        <div class="header-right">
+            <span id="update-time">--:--:--</span>
+            <div class="status" id="status-indicator">
+                <div class="status-dot"></div>
+                <span>Connecting</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="chart-area">
+            <div id="chart"></div>
+        </div>
+        
+        <div class="sidebar">
+            <!-- Settings Panel -->
+            <div class="panel">
+                <div class="panel-title">Settings</div>
+                
+                <div class="control-group">
+                    <div class="control-label">Symbol</div>
+                    <select id="symbol" onchange="changeSymbol()">
+                        <option value="BTCUSDT">BTC/USDT</option>
+                        <option value="ETHUSDT">ETH/USDT</option>
+                        <option value="BNBUSDT">BNB/USDT</option>
+                        <option value="SOLUSDT">SOL/USDT</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <div class="control-label">Timeframe</div>
+                    <select id="timeframe" onchange="changeTimeframe()">
+                        <option value="15m">15 Minutes</option>
+                        <option value="1h" selected>1 Hour</option>
+                        <option value="4h">4 Hours</option>
+                        <option value="1d">1 Day</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <div class="control-label">BB Period</div>
+                    <input type="number" id="bb-period" value="20" min="10" max="50" onchange="reload()">
+                </div>
+                
+                <div class="button-group">
+                    <button id="auto-btn" onclick="toggleAuto()">Auto: OFF</button>
+                    <button onclick="reset()">Reset</button>
+                </div>
+            </div>
+            
+            <!-- Live Data Panel -->
+            <div class="panel">
+                <div class="panel-title">Live Data</div>
+                <div id="error-msg"></div>
+                <div class="data-row">
+                    <span class="data-label">Price</span>
+                    <span class="data-value" id="price">-</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Upper Band</span>
+                    <span class="data-value" id="upper">-</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Lower Band</span>
+                    <span class="data-value" id="lower">-</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Volatility</span>
+                    <span class="data-value" id="vol">-</span>
+                </div>
+            </div>
+            
+            <!-- ML Prediction Panel -->
+            <div class="panel">
+                <div class="panel-title">ML Prediction</div>
+                <button class="predict" onclick="runMLPrediction()" style="width: 100%; margin-top: 0; margin-bottom: 12px;">Run Prediction</button>
+                <div id="prediction-box" class="empty-state">Click to predict</div>
+                <div id="debug-info" class="debug-info" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 修議：變更 API 位址
+        const API_BASE = 'http://localhost:5001';
+        const ML_API = 'http://localhost:5002';
+        
+        let chart = null;
+        let candleSeries = null;
+        let upperSeries = null;
+        let lowerSeries = null;
+        let autoEnabled = false;
+        let autoInterval = null;
+        let currentData = null;
+        
+        function initChart() {
+            const container = document.getElementById('chart');
+            
+            try {
+                chart = LightweightCharts.createChart(container, {
+                    layout: {
+                        background: { color: '#1a2332' },
+                        textColor: '#9ca3af'
+                    },
+                    width: container.clientWidth,
+                    height: container.clientHeight,
+                    timeScale: {
+                        timeVisible: true,
+                        secondsVisible: false
+                    },
+                    grid: {
+                        horzLines: { color: '#2d3a4a' },
+                        vertLines: { color: '#2d3a4a' }
+                    }
+                });
+                
+                candleSeries = chart.addCandlestickSeries({
+                    upColor: '#10b981',
+                    downColor: '#ef4444',
+                    borderUpColor: '#10b981',
+                    borderDownColor: '#ef4444',
+                    wickUpColor: '#10b981',
+                    wickDownColor: '#ef4444'
+                });
+                
+                upperSeries = chart.addLineSeries({
+                    color: '#ef4444',
+                    lineWidth: 1
+                });
+                
+                lowerSeries = chart.addLineSeries({
+                    color: '#10b981',
+                    lineWidth: 1
+                });
+                
+                loadChart();
+                
+            } catch (error) {
+                console.error('Chart error:', error);
+                setStatus(false);
+            }
+        }
+        
+        async function loadChart() {
+            const sym = document.getElementById('symbol').value;
+            const tf = document.getElementById('timeframe').value;
+            const p = document.getElementById('bb-period').value;
+            
+            try {
+                const response = await fetch(
+                    `${API_BASE}/api/klines?symbol=${sym}&timeframe=${tf}&period=${p}&stddev=2&limit=200`
+                );
+                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                currentData = data;
+                
+                if (candleSeries) {
+                    candleSeries.setData(data.candles);
+                    upperSeries.setData(data.bb_upper);
+                    lowerSeries.setData(data.bb_lower);
+                    chart.timeScale().fitContent();
+                }
+                
+                updateData(data);
+                setStatus(true);
+                
+            } catch (error) {
+                console.error('Load error:', error);
+                setStatus(false);
+            }
+        }
+        
+        async function updateCandle() {
+            const sym = document.getElementById('symbol').value;
+            const tf = document.getElementById('timeframe').value;
+            const p = document.getElementById('bb-period').value;
+            
+            try {
+                const response = await fetch(
+                    `${API_BASE}/api/klines?symbol=${sym}&timeframe=${tf}&period=${p}&stddev=2&limit=2`
+                );
+                
+                if (!response.ok) return;
+                
+                const data = await response.json();
+                currentData = data;
+                
+                if (data.candles.length > 0) {
+                    const lastCandle = data.candles[data.candles.length - 1];
+                    candleSeries.update(lastCandle);
+                }
+                
+                if (data.bb_upper.length > 0) {
+                    upperSeries.update(data.bb_upper[data.bb_upper.length - 1]);
+                }
+                if (data.bb_lower.length > 0) {
+                    lowerSeries.update(data.bb_lower[data.bb_lower.length - 1]);
+                }
+                
+                updateData(data);
+                updateTime();
+                
+            } catch (error) {
+                console.log('Auto-update failed');
+            }
+        }
+        
+        function updateData(data) {
+            const s = data.stats;
+            document.getElementById('price').textContent = '$' + s.current_price.toFixed(2);
+            document.getElementById('upper').textContent = '$' + s.bb_upper.toFixed(2);
+            document.getElementById('lower').textContent = '$' + s.bb_lower.toFixed(2);
+            document.getElementById('vol').textContent = s.volatility.toFixed(2) + '%';
+        }
+        
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('update-time').textContent = now.toLocaleTimeString();
+        }
+        
+        // 修謬：正確的檔案名稱暗為 model_SYMBOL_TIMEFRAME
+async function runMLPrediction() {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = 'Predicting...';
+            
+            try {
+                if (!currentData) {
+                    throw new Error('No data loaded');
+                }
+                
+                const sym = document.getElementById('symbol').value;
+                const tf = document.getElementById('timeframe').value;
+                const s = currentData.stats;
+                
+                // 调试信息
+                const debugMsg = `Symbol: ${sym}, TF: ${tf}, Price: ${s.current_price}`;
+                console.log(debugMsg);
+                
+                const response = await fetch(`${ML_API}/api/predict`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        symbol: sym,
+                        timeframe: tf,
+                        close: s.current_price,
+                        bb_upper: s.bb_upper,
+                        bb_lower: s.bb_lower,
+                        bb_middle: s.bb_middle,
+                        rsi: 50,
+                        volatility: s.volatility
+                    })
+                });
+                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const result = await response.json();
+                console.log('Prediction result:', result);
+                
+                let html = `<div class="signal-box signal-${result.signal.toLowerCase()}">`;
+                html += `<div class="signal-text">${result.signal}</div>`;
+                html += `<div class="signal-info">`;
+                html += `Model: ${result.model}<br>`;
+                html += `Type: ${result.model_type}<br>`;
+                html += `Confidence: ${(result.confidence * 100).toFixed(1)}%`;
+                html += `</div>`;
+                html += `<div class="confidence-bar">`;
+                html += `<div class="confidence-fill" style="width: ${result.confidence * 100}%"></div>`;
+                html += `</div>`;
+                html += `</div>`;
+                
+                document.getElementById('prediction-box').innerHTML = html;
+                
+                // 顯示调试信息
+                const debugBox = document.getElementById('debug-info');
+                debugBox.style.display = 'block';
+                debugBox.innerHTML = `Debug: ${JSON.stringify(result, null, 2)}`;
+                
+            } catch (error) {
+                console.error('Prediction error:', error);
+                const box = document.getElementById('prediction-box');
+                box.innerHTML = `<div class="empty-state">Error: ${error.message}</div>`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Run Prediction';
+            }
+        }
+        
+        function changeSymbol() {
+            if (autoEnabled) toggleAuto();
+            loadChart();
+        }
+        
+        function changeTimeframe() {
+            if (autoEnabled) toggleAuto();
+            loadChart();
+        }
+        
+        function reload() {
+            if (autoEnabled) toggleAuto();
+            loadChart();
+        }
+        
+        function toggleAuto() {
+            autoEnabled = !autoEnabled;
+            const btn = document.getElementById('auto-btn');
+            
+            if (autoEnabled) {
+                btn.classList.add('active');
+                btn.textContent = 'Auto: ON';
+                autoInterval = setInterval(updateCandle, 1000);
+            } else {
+                btn.classList.remove('active');
+                btn.textContent = 'Auto: OFF';
+                if (autoInterval) clearInterval(autoInterval);
+            }
+        }
+        
+        function reset() {
+            document.getElementById('symbol').value = 'BTCUSDT';
+            document.getElementById('timeframe').value = '1h';
+            document.getElementById('bb-period').value = '20';
+            changeSymbol();
+        }
+        
+        function setStatus(ok) {
+            const ind = document.getElementById('status-indicator');
+            if (ok) {
+                ind.className = 'status';
+                ind.innerHTML = '<div class="status-dot"></div><span>Connected</span>';
+            } else {
+                ind.className = 'status';
+                ind.style.background = 'rgba(239, 68, 68, 0.1)';
+                ind.style.borderColor = '#ef4444';
+                ind.style.color = '#ef4444';
+                ind.innerHTML = '<div class="status-dot" style="background: #ef4444;"></div><span>Error</span>';
+            }
+        }
+        
+        window.addEventListener('DOMContentLoaded', () => {
+            initChart();
+            updateTime();
+        });
+        
+        window.addEventListener('beforeunload', () => {
+            if (autoInterval) clearInterval(autoInterval);
+        });
+        
+        window.addEventListener('resize', () => {
+            if (chart) {
+                const container = document.getElementById('chart');
+                chart.applyOptions({ width: container.clientWidth });
+            }
+        });
+    </script>
+</body>
+</html>
