@@ -239,6 +239,16 @@
             background: rgba(0, 212, 255, 0.3);
         }
         
+        .btn-toggle {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4CAF50;
+            border: 1px solid #4CAF50;
+        }
+        
+        .btn-toggle.active {
+            background: rgba(76, 175, 80, 0.4);
+        }
+        
         .signal-item {
             background: rgba(0, 212, 255, 0.05);
             border: 1px solid rgba(0, 212, 255, 0.2);
@@ -454,6 +464,10 @@
                     <button class="btn-secondary" onclick="resetChart()">Reset</button>
                 </div>
                 
+                <div class="form-group" style="margin-top: 15px;">
+                    <button class="btn-toggle" id="auto-refresh-btn" onclick="toggleAutoRefresh()">Auto Refresh: OFF</button>
+                </div>
+                
                 <div class="info-message" id="chart-info">
                     <strong>Loading...</strong>
                 </div>
@@ -515,6 +529,8 @@
         let middleBandSeries = null;
         let lowerBandSeries = null;
         let currentData = null;
+        let autoRefreshEnabled = false;
+        let autoRefreshInterval = null;
         
         // Initialize Chart
         function initChart() {
@@ -652,8 +668,9 @@
                 updateSignals(data, symbol, timeframe);
                 
                 // Update info message
+                const timestamp = new Date().toLocaleTimeString();
                 document.getElementById('chart-info').innerHTML = 
-                    `<strong>OK</strong> - Loaded ${data.candles.length}/${data.total_candles} candles`;
+                    `<strong>OK</strong> - Updated at ${timestamp}`;
                 
                 // Update status
                 updateStatus(true);
@@ -770,11 +787,46 @@
             }
         }
         
+        function toggleAutoRefresh() {
+            autoRefreshEnabled = !autoRefreshEnabled;
+            const btn = document.getElementById('auto-refresh-btn');
+            
+            if (autoRefreshEnabled) {
+                btn.classList.add('active');
+                btn.textContent = 'Auto Refresh: ON';
+                
+                // Start auto-refresh every 1 second
+                autoRefreshInterval = setInterval(() => {
+                    updateChart();
+                }, 1000);
+                
+                console.log('Auto-refresh enabled (1 second interval)');
+            } else {
+                btn.classList.remove('active');
+                btn.textContent = 'Auto Refresh: OFF';
+                
+                // Stop auto-refresh
+                if (autoRefreshInterval) {
+                    clearInterval(autoRefreshInterval);
+                    autoRefreshInterval = null;
+                }
+                
+                console.log('Auto-refresh disabled');
+            }
+        }
+        
         // Initialize on load
         window.addEventListener('DOMContentLoaded', () => {
             console.log('Dashboard initializing...');
             console.log('Chart Data Service URL:', CHART_SERVICE_URL);
             initChart();
+        });
+        
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
         });
     </script>
 </body>
