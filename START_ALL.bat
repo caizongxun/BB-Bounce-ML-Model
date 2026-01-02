@@ -1,14 +1,15 @@
 @echo off
 REM ============================================================================
 REM BB Bounce Pro - 一鍵啟動所有服務
+REM 版本：v4 (最新修復版本)
 REM ============================================================================
-REM 此批次檔會啟動所有必要的服務
 
 setlocal enabledelayedexpansion
 
 echo.
 echo ============================================================================
 echo BB Bounce Pro - 一鍵啟動系統
+echo 版本: v4 (已修復所有 Bug)
 echo ============================================================================
 echo.
 
@@ -40,9 +41,9 @@ echo ===========================================================================
 echo.
 echo 這個批次檔會開啟 2 個 Terminal：
 echo   1. Chart Data Service (Port 5001) - K 線和 BB 軌道數據
-echo   2. ML Prediction Service (Port 5002) - ML 模型預測
+echo   2. ML Prediction Service v4 (Port 5002) - ML 模型預測 (已修復)
 echo.
-echo 然後手動打開瀏覽器訪問儀表板
+echo 然後手勘打開瀏覽器訪問儀表板
 echo.
 pause
 
@@ -56,10 +57,10 @@ REM 等待第一個服務啟動
 timeout /t 3 /nobreak >nul 2>&1
 
 echo.
-echo [Step 2] 啟動 ML 預測服務...
+echo [Step 2] 啟動 ML 預測服務 v4...
 echo.
-start /d "%cd%" "ML Prediction Service" cmd /k "python ml_prediction_service_v3.py"
-echo [OK] ML Prediction Service 已啟動 (Port 5002)
+start /d "%cd%" "ML Prediction Service v4" cmd /k "python ml_prediction_service_v4.py"
+echo [OK] ML Prediction Service v4 已啟動 (Port 5002)
 
 REM 等待第二個服務啟動
 timeout /t 3 /nobreak >nul 2>&1
@@ -71,11 +72,11 @@ echo ===========================================================================
 echo.
 echo [Next Step] 打開瀏覽器並訪問以下地址：
 echo.
-echo 儀表板：
-echo   file:///C:/Users/omt23/PycharmProjects/BB-Bounce-ML-Model/dashboard_with_ml_prediction.html
+echo 儀表板 (已修復版本) ：
+echo   file:///C:/Users/omt23/PycharmProjects/BB-Bounce-ML-Model/dashboard_fixed_fallback.html
 echo.
-echo 或者使用相對路徑：
-echo   file:///./dashboard_with_ml_prediction.html
+echo 或使用相對路徑：
+echo   file:///./dashboard_fixed_fallback.html
 echo.
 echo 確保修改路徑為你的實際位置
 echo.
@@ -88,6 +89,11 @@ echo [Tip] 如果需要停止：
 echo   1. 在對應的 Terminal 中按 Ctrl+C
 echo   2. 或直接關閉 Terminal 窗口
 echo.
+echo [重要] v4 版本已修復：
+echo   - 修復了檔案名稱匹配問題
+echo   - 應該看到 "Model: model_BTCUSDT_1h" (不是 fallback)
+echo   - Confidence 應該在 70-90% 之間
+echo.
 echo ============================================================================
 echo.
 pause
@@ -96,7 +102,8 @@ goto :eof
 :install_dependencies
 echo.
 echo [INFO] 正在安裝必要的 Python 依賴...
-pip install --upgrade flask flask-cors joblib scikit-learn numpy pandas
+echo.
+pip install --upgrade flask flask-cors joblib scikit-learn numpy pandas xgboost lightgbm
 echo.
 echo [OK] 依賴安裝完成
 echo.
