@@ -426,12 +426,12 @@
                 
                 <div class="control-group">
                     <div class="control-label">刷新間隔 (秒)</div>
-                    <input type="number" id="refresh-interval" value="15" min="5" max="60">
+                    <input type="number" id="refresh-interval" value="20" min="10" max="60">
                 </div>
                 
                 <div class="control-group">
                     <div class="control-label">計時棄置 (ms)</div>
-                    <input type="number" id="timeout" value="10000" min="5000" max="30000">
+                    <input type="number" id="timeout" value="15000" min="10000" max="30000">
                     <div style="font-size: 9px; color: #6b7280; margin-top: 4px;">單個計時</div>
                 </div>
                 
@@ -482,7 +482,7 @@
             <div class="detector-content">
                 <div id="progress-info" class="progress-info" style="display: none;"></div>
                 <div id="symbols-container" class="symbols-grid">
-                    <div class="loading"><div class="spinner"></div> 正在加載數據...</div>
+                    <div class="loading"><div class="spinner"></div> 正在並行加載數據...</div>
                 </div>
             </div>
         </div>
@@ -511,6 +511,7 @@
         
         let detectorInterval = null;
         let isUpdating = false;
+        const MAX_CONCURRENT = 5;  // 並行上限
         
         // UI 更新監聽器
         document.getElementById('touch-threshold').addEventListener('input', (e) => {
@@ -528,7 +529,7 @@
             event.target.classList.add('active');
         }
         
-        // 並行加載單個幣種（添加逺時、體體驗證）
+        // 並行加載單個幣種
         async function fetchSymbolData(symbol, timeframe, period, threshold, minConfidence, timeout) {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -647,8 +648,31 @@
             }
         }
         
+        // 批量加載（限佋並行數）
+        async function batchFetch(symbols, batchSize, timeframe, period, threshold, minConfidence, timeout) {
+            const results = [];
+            let completedCount = 0;
+            const total = symbols.length;
+            
+            for (let i = 0; i < symbols.length; i += batchSize) {
+                const batch = symbols.slice(i, i + batchSize);
+                const batchPromises = batch.map(symbol => 
+                    fetchSymbolData(symbol, timeframe, period, threshold, minConfidence, timeout).then(result => {
+                        completedCount++;
+                        document.getElementById('progress-info').innerHTML = `已完成: ${completedCount}/${total}`;
+                        return result;
+                    })
+                );
+                
+                const batchResults = await Promise.all(batchPromises);
+                results.push(...batchResults);
+            }
+            
+            return results;
+        }
+        
         async function updateDetector() {
-            // 防止並發警報（上一个更新還沒完成就不要起動新的）
+            // 防止並發警報
             if (isUpdating) {
                 console.log('上一次更新還未完成，跳過此次');
                 return;
@@ -666,36 +690,33 @@
             const container = document.getElementById('symbols-container');
             const progressInfo = document.getElementById('progress-info');
             
-            container.innerHTML = '<div class="loading"><div class="spinner"></div> 正在並行加載 22 個幣種...</div>';
+            container.innerHTML = '<div class="loading"><div class="spinner"></div> 正在批量加載數據...</div>';
             progressInfo.style.display = 'block';
-            progressInfo.innerHTML = '已完成: 0/22';
+            progressInfo.innerHTML = '已完成: 0/' + SYMBOLS.length;
             
             try {
-                // 並行加載所有幣種
-                const promises = SYMBOLS.map(symbol => fetchSymbolData(symbol, timeframe, period, threshold, minConfidence, timeout));
-                
-                // 使用 Promise.allSettled 來追蹤進度
-                let completedCount = 0;
-                const progressPromises = promises.map(p => 
-                    p.then(result => {
-                        completedCount++;
-                        progressInfo.innerHTML = `已完成: ${completedCount}/22`;
-                        return result;
-                    })
+                // 使用 batchFetch，限制並行數爲 5
+                const cardsData = await batchFetch(
+                    SYMBOLS, 
+                    MAX_CONCURRENT, 
+                    timeframe, 
+                    period, 
+                    threshold, 
+                    minConfidence, 
+                    timeout
                 );
                 
-                const results = await Promise.all(progressPromises);
-                const cardsData = results.filter(r => r !== null);
+                const validCards = cardsData.filter(r => r !== null);
                 
                 // 排序
                 if (sortByStrength) {
-                    cardsData.sort((a, b) => b.confidence - a.confidence);
+                    validCards.sort((a, b) => b.confidence - a.confidence);
                 } else {
-                    cardsData.sort((a, b) => a.alertDistance - b.alertDistance);
+                    validCards.sort((a, b) => a.alertDistance - b.alertDistance);
                 }
                 
                 // 渲染卡片
-                renderCards(cardsData, showAlertsOnly);
+                renderCards(validCards, showAlertsOnly);
                 setStatus(true);
                 updateTime();
                 progressInfo.style.display = 'none';
@@ -785,7 +806,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             updateDetector();
             
-            // 自動刷新（改成 5 秒一次，防止並發）
+            // 自動刷新
             detectorInterval = setInterval(() => {
                 const interval = parseInt(document.getElementById('refresh-interval').value);
                 updateDetector();
