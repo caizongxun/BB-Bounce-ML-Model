@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BB Bounce Pro v2 - Real-time Trading</title>
+    <script src="https://unpkg.com/lightweight-charts@4/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            width: 100%;
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+        }
+        
+        .header {
+            background: rgba(0, 0, 0, 0.3);
+            border-bottom: 2px solid #00d4ff;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0, 212, 255, 0.1);
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            font-weight: bold;
+            background: linear-gradient(90deg, #00d4ff, #0099ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+        }
+        
+        .header-right {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            font-size: 12px;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 15px;
+            background: rgba(76, 175, 80, 0.2);
+            border: 1px solid #4CAF50;
+            border-radius: 20px;
+            font-size: 12px;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #4CAF50;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-indicator.error {
+            background: rgba(255, 100, 100, 0.2);
+            border-color: #ff6464;
+        }
+        
+        .status-indicator.error .status-dot {
+            background: #ff6464;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .main-container {
+            display: grid;
+            grid-template-columns: 1fr 360px;
+            height: calc(100vh - 80px);
+            gap: 20px;
+            padding: 20px;
+        }
+        
+        .chart-container {
+            background: rgba(20, 30, 50, 0.8);
+            border: 1px solid #00d4ff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        #chart {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .sidebar-card {
+            background: rgba(20, 30, 50, 0.8);
+            border: 1px solid #00d4ff;
+            border-radius: 10px;
+            padding: 15px;
+            overflow-y: auto;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        .sidebar-card::-webkit-scrollbar {
+            width: 5px;
+        }
+        
+        .sidebar-card::-webkit-scrollbar-thumb {
+            background: #00d4ff;
+            border-radius: 3px;
+        }
+        
+        .sidebar-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #00d4ff;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.3);
+        }
+        
+        .form-group {
+            margin-bottom: 12px;
+        }
+        
+        label {
+            display: block;
+            font-size: 10px;
+            color: #888;
+            margin-bottom: 3px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        select, input {
+            width: 100%;
+            padding: 8px;
+            background: rgba(30, 40, 60, 0.8);
+            border: 1px solid #00d4ff;
+            border-radius: 4px;
+            color: #e0e0e0;
+            font-size: 12px;
+        }
+        
+        select:focus, input:focus {
+            outline: none;
+            border-color: #00ff88;
+            box-shadow: 0 0 8px rgba(0, 255, 136, 0.2);
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 8px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s;
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(90deg, #00d4ff, #0099ff);
+            color: white;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.3);
+        }
+        
+        .btn-secondary {
+            background: rgba(0, 212, 255, 0.15);
+            color: #00d4ff;
+            border: 1px solid #00d4ff;
+        }
+        
+        .btn-secondary:hover:not(:disabled) {
+            background: rgba(0, 212, 255, 0.25);
+        }
+        
+        .btn-toggle {
+            background: rgba(76, 175, 80, 0.15);
+            color: #4CAF50;
+            border: 1px solid #4CAF50;
+        }
+        
+        .btn-toggle.active {
+            background: rgba(76, 175, 80, 0.3);
+        }
+        
+        .btn-predict {
+            background: rgba(255, 152, 0, 0.15);
+            color: #ff9800;
+            border: 1px solid #ff9800;
+        }
+        
+        .btn-predict:hover:not(:disabled) {
+            background: rgba(255, 152, 0, 0.25);
+        }
+        
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            margin-bottom: 8px;
+            padding: 6px;
+            background: rgba(0, 212, 255, 0.03);
+            border-radius: 4px;
+        }
+        
+        .stats-label {
+            color: #888;
+        }
+        
+        .stats-value {
+            color: #00ff88;
+            font-weight: bold;
+        }
+        
+        .prediction-box {
+            background: rgba(255, 152, 0, 0.08);
+            border: 1px solid rgba(255, 152, 0, 0.3);
+            border-radius: 6px;
+            padding: 10px;
+            margin-top: 8px;
+        }
+        
+        .prediction-title {
+            color: #ff9800;
+            font-weight: bold;
+            font-size: 11px;
+            margin-bottom: 6px;
+        }
+        
+        .prediction-item {
+            font-size: 10px;
+            color: #999;
+            margin-bottom: 3px;
+        }
+        
+        .prediction-value {
+            color: #00ff88;
+            font-weight: bold;
+        }
+        
+        .empty-state {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+            font-size: 10px;
+        }
+        
+        .info-message {
+            background: rgba(0, 212, 255, 0.08);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+            padding: 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>BB Bounce Pro v2</h1>
+        <div class="header-right">
+            <span id="update-time">--:--:--</span>
+            <div class="status-indicator" id="status-indicator">
+                <div class="status-dot"></div>
+                <span>Connecting</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="main-container">
+        <div class="chart-container">
+            <div id="chart"></div>
+        </div>
+        
+        <div class="sidebar">
+            <div class="sidebar-card" style="flex: 0.4;">
+                <div class="sidebar-title">Settings</div>
+                
+                <div class="form-group">
+                    <label>Symbol</label>
+                    <select id="symbol" onchange="changeSymbol()">
+                        <option value="BTCUSDT">BTCUSDT</option>
+                        <option value="ETHUSDT">ETHUSDT</option>
+                        <option value="BNBUSDT">BNBUSDT</option>
+                        <option value="SOLUSDT">SOLUSDT</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Timeframe</label>
+                    <select id="timeframe" onchange="changeTimeframe()">
+                        <option value="15m">15m</option>
+                        <option value="1h" selected>1h</option>
+                        <option value="4h">4h</option>
+                        <option value="1d">1d</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>BB Period</label>
+                    <input type="number" id="bb-period" value="20" min="10" max="50" onchange="reloadChart()">
+                </div>
+                
+                <div class="form-group">
+                    <label>BB Stddev</label>
+                    <input type="number" id="bb-stddev" value="2" min="1" max="5" step="0.1" onchange="reloadChart()">
+                </div>
+                
+                <div class="button-group">
+                    <button class="btn-toggle" id="auto-btn" onclick="toggleAuto()" style="width: 100%;">Auto: OFF</button>
+                </div>
+                
+                <div class="button-group">
+                    <button class="btn-predict" onclick="predict()">Predict</button>
+                    <button class="btn-secondary" onclick="reset()">Reset</button>
+                </div>
+            </div>
+            
+            <div class="sidebar-card" style="flex: 0.3;">
+                <div class="sidebar-title">Live Data</div>
+                <div class="stats-row">
+                    <span class="stats-label">Price</span>
+                    <span class="stats-value" id="price">-</span>
+                </div>
+                <div class="stats-row">
+                    <span class="stats-label">Upper</span>
+                    <span class="stats-value" id="upper">-</span>
+                </div>
+                <div class="stats-row">
+                    <span class="stats-label">Lower</span>
+                    <span class="stats-value" id="lower">-</span>
+                </div>
+                <div class="stats-row">
+                    <span class="stats-label">Vol %</span>
+                    <span class="stats-value" id="vol">-</span>
+                </div>
+            </div>
+            
+            <div class="sidebar-card" style="flex: 0.5;">
+                <div class="sidebar-title">Analysis</div>
+                <div id="pred-box">
+                    <div class="empty-state">Click Predict</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const URL = 'http://localhost:5001';
+        let chart, candles, upper, middle, lower;
+        let auto = false, autoInt = null;
+        
+        function init() {
+            const box = document.getElementById('chart');
+            chart = LightweightCharts.createChart(box, {
+                layout: { background: { color: 'rgba(20,30,50,0)' }, textColor: '#a0a0a0' },
+                width: box.clientWidth,
+                height: box.clientHeight,
+                timeScale: { timeVisible: true, secondsVisible: false },
+                grid: {
+                    horzLines: { color: 'rgba(100,150,180,0.1)' },
+                    vertLines: { color: 'rgba(100,150,180,0.1)' }
+                }
+            });
+            
+            candles = chart.addCandlestickSeries({
+                upColor: '#26a69a',
+                downColor: '#ef5350',
+                borderDownColor: '#ef5350',
+                borderUpColor: '#26a69a',
+                wickDownColor: '#ef5350',
+                wickUpColor: '#26a69a'
+            });
+            
+            upper = chart.addLineSeries({
+                color: '#ff6b6b',
+                lineWidth: 1,
+                lineStyle: 1
+            });
+            
+            middle = chart.addLineSeries({
+                color: '#4ecdc4',
+                lineWidth: 1,
+                lineStyle: 2
+            });
+            
+            lower = chart.addLineSeries({
+                color: '#6bcf7f',
+                lineWidth: 1,
+                lineStyle: 1
+            });
+            
+            window.addEventListener('resize', () => {
+                if (chart) chart.applyOptions({ width: box.clientWidth });
+            });
+            
+            load();
+        }
+        
+        async function load() {
+            const sym = document.getElementById('symbol').value;
+            const tf = document.getElementById('timeframe').value;
+            const p = parseInt(document.getElementById('bb-period').value);
+            const s = parseFloat(document.getElementById('bb-stddev').value);
+            
+            try {
+                const r = await fetch(`${URL}/api/klines?symbol=${sym}&timeframe=${tf}&period=${p}&stddev=${s}&limit=200`);
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                
+                const d = await r.json();
+                candles.setData(d.candles);
+                upper.setData(d.bb_upper);
+                middle.setData(d.bb_middle);
+                lower.setData(d.bb_lower);
+                
+                chart.timeScale().fitContent();
+                updateStats(d);
+                setStatus(true);
+                
+            } catch (e) {
+                console.error(e);
+                setStatus(false);
+            }
+        }
+        
+        async function update() {
+            const sym = document.getElementById('symbol').value;
+            const tf = document.getElementById('timeframe').value;
+            const p = parseInt(document.getElementById('bb-period').value);
+            const s = parseFloat(document.getElementById('bb-stddev').value);
+            
+            try {
+                const r = await fetch(`${URL}/api/klines?symbol=${sym}&timeframe=${tf}&period=${p}&stddev=${s}&limit=2`);
+                if (!r.ok) return;
+                
+                const d = await r.json();
+                if (d.candles.length === 0) return;
+                
+                // 只更新最後一根（实时跳動，无 loading）
+                const last = d.candles[d.candles.length - 1];
+                candles.update(last);
+                
+                if (d.bb_upper.length > 0) upper.update(d.bb_upper[d.bb_upper.length - 1]);
+                if (d.bb_middle.length > 0) middle.update(d.bb_middle[d.bb_middle.length - 1]);
+                if (d.bb_lower.length > 0) lower.update(d.bb_lower[d.bb_lower.length - 1]);
+                
+                updateStats(d);
+                
+                const now = new Date();
+                document.getElementById('update-time').textContent = now.toLocaleTimeString();
+                
+            } catch (e) {
+                // 靜默失敗
+            }
+        }
+        
+        function updateStats(d) {
+            document.getElementById('price').textContent = '$' + d.stats.current_price.toFixed(0);
+            document.getElementById('upper').textContent = '$' + d.stats.bb_upper.toFixed(0);
+            document.getElementById('lower').textContent = '$' + d.stats.bb_lower.toFixed(0);
+            document.getElementById('vol').textContent = d.stats.volatility.toFixed(1) + '%';
+        }
+        
+        function changeSymbol() {
+            if (auto) toggleAuto();
+            load();
+        }
+        
+        function changeTimeframe() {
+            if (auto) toggleAuto();
+            load();
+        }
+        
+        function reloadChart() {
+            if (auto) toggleAuto();
+            load();
+        }
+        
+        function toggleAuto() {
+            auto = !auto;
+            const btn = document.getElementById('auto-btn');
+            
+            if (auto) {
+                btn.classList.add('active');
+                btn.textContent = 'Auto: ON';
+                autoInt = setInterval(update, 1000);
+            } else {
+                btn.classList.remove('active');
+                btn.textContent = 'Auto: OFF';
+                if (autoInt) clearInterval(autoInt);
+            }
+        }
+        
+        function setStatus(ok) {
+            const ind = document.getElementById('status-indicator');
+            if (ok) {
+                ind.className = 'status-indicator';
+                ind.innerHTML = '<div class="status-dot"></div><span>Connected</span>';
+            } else {
+                ind.className = 'status-indicator error';
+                ind.innerHTML = '<div class="status-dot"></div><span>Error</span>';
+            }
+        }
+        
+        async function predict() {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = 'Loading...';
+            
+            const sym = document.getElementById('symbol').value;
+            const tf = document.getElementById('timeframe').value;
+            const p = parseInt(document.getElementById('bb-period').value);
+            const s = parseFloat(document.getElementById('bb-stddev').value);
+            
+            try {
+                const r = await fetch(`${URL}/api/analyze`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ symbol: sym, timeframe: tf, period: p, stddev: s })
+                });
+                
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                const res = await r.json();
+                
+                let html = '<div class="prediction-box">';
+                html += '<div class="prediction-title">Analysis Results</div>';
+                html += `<div class="prediction-item">Price: <span class="prediction-value">$${res.current_price.toFixed(0)}</span></div>`;
+                html += `<div class="prediction-item">Upper: <span class="prediction-value">$${res.bb_upper.toFixed(0)}</span></div>`;
+                html += `<div class="prediction-item">Lower: <span class="prediction-value">$${res.bb_lower.toFixed(0)}</span></div>`;
+                html += `<div class="prediction-item">Vol: <span class="prediction-value">${res.volatility.toFixed(1)}%</span></div>`;
+                
+                if (res.touched) {
+                    html += `<div class="prediction-item" style="margin-top: 6px; color: #ff9800;">Status: ${res.touch_type} Touch</div>`;
+                } else {
+                    html += `<div class="prediction-item" style="margin-top: 6px; color: #4CAF50;">Status: Within Band</div>`;
+                }
+                
+                html += '</div>';
+                document.getElementById('pred-box').innerHTML = html;
+                
+            } catch (e) {
+                document.getElementById('pred-box').innerHTML = `<div class="empty-state">Error: ${e.message}</div>`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Predict';
+            }
+        }
+        
+        function reset() {
+            document.getElementById('bb-period').value = '20';
+            document.getElementById('bb-stddev').value = '2';
+            document.getElementById('symbol').value = 'BTCUSDT';
+            document.getElementById('timeframe').value = '1h';
+            changeSymbol();
+        }
+        
+        window.addEventListener('DOMContentLoaded', init);
+        
+        window.addEventListener('beforeunload', () => {
+            if (autoInt) clearInterval(autoInt);
+        });
+    </script>
+</body>
+</html>
