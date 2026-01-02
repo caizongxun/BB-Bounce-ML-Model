@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-图表数据来源服务
-提供真实 K 棒數据和 Bollinger Bands 计算
+图表数据源服务
+提供真实 K 棒数据和 Bollinger Bands 计算
+✅ 修复：排除不完整的最后一根 K 棒
 """
 
 from flask import Flask, jsonify, request
@@ -20,7 +21,7 @@ app = Flask(__name__)
 CORS(app)
 
 print("\n" + "="*70)
-print("Chart Data Service - TradingView不加载数据供应")
+print("Chart Data Service - TradingView Real-time Data Provider")
 print("="*70 + "\n")
 
 # ============================================================================
@@ -48,17 +49,26 @@ class Config:
 # ============================================================================
 
 def fetch_klines(symbol, timeframe, limit=200):
-    """从 Binance US 抓取 K 棒"""
+    """从 Binance US 抓取 K 棒
+    
+    重要：排除最后一根未完整 K 棒以馁自宇模式正理中的 K 棒
+    """
     
     interval = Config.TIMEFRAME_MAP.get(timeframe, '15m')
     url = f"{Config.BINANCE_BASE_URL}/api/v3/klines"
-    params = {'symbol': symbol, 'interval': interval, 'limit': min(limit, 1000)}  # Binance API 最大 1000
+    # 触及最后一根正形成的 K 棒，所以额外请租 1 根
+    params = {'symbol': symbol, 'interval': interval, 'limit': min(limit + 1, 1000)}
     
     try:
         response = requests.get(url, params=params, timeout=10)
         response.raise_for_status()
         
         klines = response.json()
+        
+        # 排除最后一根（正在形成中）
+        if len(klines) > limit:
+            klines = klines[:-1]
+        
         df = pd.DataFrame(klines, columns=[
             'open_time', 'open', 'high', 'low', 'close', 'volume',
             'close_time', 'quote_asset_volume', 'number_of_trades',
@@ -74,7 +84,7 @@ def fetch_klines(symbol, timeframe, limit=200):
         return df[['open', 'high', 'low', 'close', 'volume']]
     
     except Exception as e:
-        print(f"[ERROR] 推遭 {symbol} {timeframe} 失败: {str(e)[:50]}")
+        print(f"[ERROR] Failed to fetch {symbol} {timeframe}: {str(e)[:50]}")
         return None
 
 def calculate_bollinger_bands(df, period=20, stddev=2):
@@ -119,17 +129,17 @@ def get_klines():
         timeframe = request.args.get('timeframe', '1h')
         period = int(request.args.get('period', 20))
         stddev = float(request.args.get('stddev', 2))
-        limit = int(request.args.get('limit', 200))  # 允许自定义数量
+        limit = int(request.args.get('limit', 200))
         
         # 限制最大数量
         limit = min(limit, 1000)
         
-        # 推遭数据
+        # 推遭数据（排除最后一根）
         df = fetch_klines(symbol, timeframe, limit=limit)
         if df is None:
             return jsonify({'error': 'Failed to fetch data'}), 500
         
-        # 计算指标
+        # 计算指標
         df = calculate_bollinger_bands(df, period=period, stddev=stddev)
         df = calculate_rsi(df)
         
@@ -182,18 +192,19 @@ def get_klines():
             })
         
         # 统计信息
-        last_row = df.iloc[-1]
-        result['stats'] = {
-            'current_price': float(last_row['close']),
-            'bb_upper': float(last_row['bb_upper']),
-            'bb_middle': float(last_row['bb_middle']),
-            'bb_lower': float(last_row['bb_lower']),
-            'bb_width': float(last_row['bb_upper'] - last_row['bb_lower']),
-            'rsi': float(last_row['rsi']),
-            'volatility': float((last_row['bb_upper'] - last_row['bb_lower']) / last_row['bb_middle'] * 100),
-            'highest': float(df['high'].max()),
-            'lowest': float(df['low'].min())
-        }
+        if len(df) > 0:
+            last_row = df.iloc[-1]
+            result['stats'] = {
+                'current_price': float(last_row['close']),
+                'bb_upper': float(last_row['bb_upper']),
+                'bb_middle': float(last_row['bb_middle']),
+                'bb_lower': float(last_row['bb_lower']),
+                'bb_width': float(last_row['bb_upper'] - last_row['bb_lower']),
+                'rsi': float(last_row['rsi']),
+                'volatility': float((last_row['bb_upper'] - last_row['bb_lower']) / last_row['bb_middle'] * 100),
+                'highest': float(df['high'].max()),
+                'lowest': float(df['low'].min())
+            }
         
         return jsonify(result)
     
@@ -216,12 +227,12 @@ def analyze():
         
         limit = Config.LOOKBACK_MAP.get(timeframe, 100)
         
-        # 推遭数据
+        # 推遭数据搆除最后一根）
         df = fetch_klines(symbol, timeframe, limit=limit)
         if df is None:
             return jsonify({'error': 'Failed to fetch data'}), 500
         
-        # 计算指标
+        # 计算指標
         df = calculate_bollinger_bands(df, period=period, stddev=stddev)
         df = calculate_rsi(df)
         
@@ -285,12 +296,13 @@ def health():
 # ============================================================================
 
 if __name__ == '__main__':
-    print("[INFO] 图表数据源服务已开始")
-    print("[INFO] 地址: http://localhost:5001")
-    print("[INFO] 端点:")
-    print("   GET  /api/klines - 推遭 K 棒（现在支持最多 1000 根）")
-    print("   POST /api/analyze - 分析 BB 触及")
-    print("   GET  /api/health - 服务状态")
-    print("[INFO] 按 CTRL+C 停止\n")
+    print("[INFO] Chart Data Service Started")
+    print("[INFO] Address: http://localhost:5001")
+    print("[INFO] Endpoints:")
+    print("   GET  /api/klines - Fetch K-bars (completed candles only)")
+    print("   POST /api/analyze - Analyze BB touch points")
+    print("   GET  /api/health - Service health check")
+    print("[INFO] Note: Last incomplete candle is excluded from data")
+    print("[INFO] Press Ctrl+C to stop\n")
     
     app.run(host='0.0.0.0', port=5001, debug=False)
