@@ -353,6 +353,16 @@
             margin-bottom: 10px;
         }
         
+        .info-message {
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid #00d4ff;
+            color: #00d4ff;
+            padding: 8px;
+            border-radius: 5px;
+            font-size: 11px;
+            margin-bottom: 10px;
+        }
+        
         @media (max-width: 1400px) {
             .main-container {
                 grid-template-columns: 1fr;
@@ -425,6 +435,11 @@
                 </div>
                 
                 <div class="form-group">
+                    <label>Candles to Display</label>
+                    <input type="number" id="candle-limit" value="200" min="50" max="1000" step="50" onchange="updateChart()">
+                </div>
+                
+                <div class="form-group">
                     <label>BB Period</label>
                     <input type="number" id="bb-period" value="20" min="10" max="50" onchange="updateChart()">
                 </div>
@@ -439,8 +454,8 @@
                     <button class="btn-secondary" onclick="resetChart()">Reset</button>
                 </div>
                 
-                <div style="margin-top: 15px; padding: 10px; background: rgba(0, 212, 255, 0.1); border-radius: 5px; font-size: 11px; color: #a0a0a0;">
-                    <strong style="color: #00d4ff;">Info:</strong> Real-time data from Binance US API. BB Channel shows potential bounce zones.
+                <div class="info-message" id="chart-info">
+                    <strong>Loading...</strong>
                 </div>
             </div>
             
@@ -471,6 +486,11 @@
                 <div class="stats-row">
                     <span class="stats-label">RSI</span>
                     <span class="stats-value" id="rsi-val">-</span>
+                </div>
+                
+                <div class="stats-row">
+                    <span class="stats-label">52W High/Low</span>
+                    <span class="stats-value" id="high-low-val">-</span>
                 </div>
             </div>
             
@@ -583,17 +603,18 @@
             const timeframe = document.getElementById('timeframe').value;
             const period = parseInt(document.getElementById('bb-period').value);
             const stddev = parseFloat(document.getElementById('bb-stddev').value);
+            const limit = parseInt(document.getElementById('candle-limit').value);
             
             document.getElementById('loading-overlay').style.display = 'flex';
             document.getElementById('update-btn').disabled = true;
             document.getElementById('error-message').innerHTML = '';
             
             try {
-                console.log(`Fetching real data for ${symbol} ${timeframe}...`);
+                console.log(`Fetching real data for ${symbol} ${timeframe} (${limit} candles)...`);
                 
                 // Fetch real data from chart data service
                 const response = await fetch(
-                    `${CHART_SERVICE_URL}/api/klines?symbol=${symbol}&timeframe=${timeframe}&period=${period}&stddev=${stddev}`,
+                    `${CHART_SERVICE_URL}/api/klines?symbol=${symbol}&timeframe=${timeframe}&period=${period}&stddev=${stddev}&limit=${limit}`,
                     { headers: { 'Accept': 'application/json' } }
                 );
                 
@@ -612,13 +633,27 @@
                 middleBandSeries.setData(data.bb_middle);
                 lowerBandSeries.setData(data.bb_lower);
                 
+                // Fit content and center chart
                 chart.timeScale().fitContent();
+                
+                // Scroll to the end (most recent data)
+                const logicalRange = chart.timeScale().getVisibleLogicalRange();
+                if (logicalRange) {
+                    chart.timeScale().setVisibleLogicalRange({
+                        from: logicalRange.from + (logicalRange.to - logicalRange.from) * 0.2,
+                        to: logicalRange.to + (logicalRange.to - logicalRange.from) * 0.2
+                    });
+                }
                 
                 // Update statistics
                 updateStatistics(data);
                 
                 // Update signals
                 updateSignals(data, symbol, timeframe);
+                
+                // Update info message
+                document.getElementById('chart-info').innerHTML = 
+                    `<strong>OK</strong> - Loaded ${data.candles.length}/${data.total_candles} candles`;
                 
                 // Update status
                 updateStatus(true);
@@ -629,6 +664,9 @@
                 const errorMsg = `Error: ${error.message}. Make sure Chart Data Service is running on port 5001.`;
                 document.getElementById('error-message').innerHTML = 
                     `<div class="error-message">${errorMsg}</div>`;
+                
+                document.getElementById('chart-info').innerHTML = 
+                    `<strong>Error</strong> - Connection failed`;
                 
                 updateStatus(false);
             } finally {
@@ -645,6 +683,8 @@
             document.getElementById('bb-lower-val').textContent = '$' + stats.bb_lower.toFixed(2);
             document.getElementById('volatility-val').textContent = stats.volatility.toFixed(2) + '%';
             document.getElementById('rsi-val').textContent = stats.rsi.toFixed(2);
+            document.getElementById('high-low-val').textContent = 
+                '$' + stats.highest.toFixed(2) + ' / $' + stats.lowest.toFixed(2);
         }
         
         function updateSignals(data, symbol, timeframe) {
@@ -657,10 +697,11 @@
             const touchingLower = stats.current_price <= stats.bb_lower / tolerance;
             
             if (!touchingUpper && !touchingLower) {
+                const distFromLower = ((stats.current_price - stats.bb_lower) / (stats.bb_upper - stats.bb_lower) * 100).toFixed(1);
                 container.innerHTML = `
                     <div class="empty-state">
                         <p>No BB touch detected</p>
-                        <p style="font-size: 11px;">Price between bands: ${((stats.current_price - stats.bb_lower) / (stats.bb_upper - stats.bb_lower) * 100).toFixed(1)}%</p>
+                        <p style="font-size: 11px;">Price at ${distFromLower}% from lower to upper band</p>
                     </div>
                 `;
                 return;
@@ -712,6 +753,7 @@
         function resetChart() {
             document.getElementById('bb-period').value = 20;
             document.getElementById('bb-stddev').value = 2;
+            document.getElementById('candle-limit').value = 200;
             document.getElementById('symbol').value = 'BTCUSDT';
             document.getElementById('timeframe').value = '1h';
             updateChart();
