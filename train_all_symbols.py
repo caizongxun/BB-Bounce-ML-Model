@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-訓練所有24個幣種的優化模型
-每個幣種訓練 15m 和 1h 兩個模型
+训练所有22个币种的优化模型
+每个币种训练 15m 和 1h 两个模型
 """
 
 import pandas as pd
@@ -21,7 +21,7 @@ from pathlib import Path
 warnings.filterwarnings('ignore')
 
 print(f"\n{'='*70}")
-print(f"訓練所有幣種的優化模型系統")
+print(f"训练所有22个币种的优化模型系统")
 print(f"{'='*70}\n")
 
 # ============================================================================
@@ -29,7 +29,7 @@ print(f"{'='*70}\n")
 # ============================================================================
 
 class Config:
-    # 所有24個幣種
+    # 22个币种
     SYMBOLS = [
         'AAVESTDT', 'ADAUSDT', 'ALGOUSDT', 'ARBUSDT', 'ATOMUSDT',
         'AVAXUSDT', 'BCHUSDT', 'BNBUSDT', 'BTCUSDT', 'DOGEUSDT',
@@ -38,31 +38,31 @@ class Config:
         'UNIUSDT', 'XRPUSDT'
     ]
     
-    TIMEFRAMES = ['15m', '1h']  # 訓練 15 分鐘和 1 小時
+    TIMEFRAMES = ['15m', '1h']  # 训练 15 分鐘和 1 小时
     HF_REPO_ID = "zongowo111/v2-crypto-ohlcv-data"
     DATA_CACHE_DIR = './data_cache'
     MODELS_DIR = './models/specialized'
     RESULTS_DIR = './training_results'
 
-# 建立目錄
+# 创建目录
 Path(Config.MODELS_DIR).mkdir(parents=True, exist_ok=True)
 Path(Config.RESULTS_DIR).mkdir(parents=True, exist_ok=True)
 
 # ============================================================================
-# 數據推獲函數
+# 数据下载函数
 # ============================================================================
 
 def download_from_hf(symbol, timeframe):
     """
-    從 Hugging Face 推獲數據
-    文件命名規則: {SYMBOL_PREFIX}_{timeframe}.parquet
+    从 Hugging Face 下载数据
+    文件命名规则: {SYMBOL_PREFIX}_{timeframe}.parquet
     """
-    # 提取幣種前綴（去掉USDT）
+    # 提取币种前缀（去掉USDT）
     symbol_prefix = symbol.replace('USDT', '')
     file_path = f"klines/{symbol}/{symbol_prefix}_{timeframe}.parquet"
     
     try:
-        print(f"   推獲 {symbol} {timeframe}...", end='', flush=True)
+        print(f"   下载 {symbol} {timeframe}...", end='', flush=True)
         
         local_path = hf_hub_download(
             repo_id=Config.HF_REPO_ID,
@@ -73,7 +73,7 @@ def download_from_hf(symbol, timeframe):
         
         df = pd.read_parquet(local_path)
         
-        # 處理索引
+        # 处理索引
         if not isinstance(df.index, pd.DatetimeIndex):
             if 'timestamp' in df.columns:
                 try:
@@ -87,12 +87,12 @@ def download_from_hf(symbol, timeframe):
         return df
     
     except Exception as e:
-        print(f" 失敗 ({str(e)[:30]}...)")
+        print(f" 失败 ({str(e)[:30]}...)")
         return None
 
 def add_technical_indicators(df):
     """
-    添加所有技術指標
+    添加所有技术指标
     """
     df = df.copy()
     
@@ -124,17 +124,17 @@ def add_technical_indicators(df):
         df['vol_ma20'] = df['volume'].rolling(20).mean()
         df['vol_ratio'] = df['volume'] / (df['vol_ma20'] + 0.0001)
         
-        # 動能
+        # 动能
         df['roc'] = df['close'].pct_change(5)
         df['momentum'] = df['close'] - df['close'].shift(5)
         
-        # 移動平均線
+        # 移动平均线
         df['ema9'] = ta.trend.EMAIndicator(df['close'], window=9).ema_indicator()
         df['ema21'] = ta.trend.EMAIndicator(df['close'], window=21).ema_indicator()
         df['sma20'] = df['close'].rolling(20).mean()
         df['sma200'] = df['close'].rolling(200).mean()
         
-        # K線形態
+        # K线形态
         df['body_size'] = abs(df['close'] - df['open'])
         df['body_ratio'] = df['body_size'] / (df['high'] - df['low'] + 0.0001)
         df['upper_wick'] = df['high'] - df[['close', 'open']].max(axis=1)
@@ -146,7 +146,7 @@ def add_technical_indicators(df):
         adx_indicator = ta.trend.ADXIndicator(df['high'], df['low'], df['close'], window=14)
         df['adx'] = adx_indicator.adx()
         
-        # 微觀結構特徵
+        # 微觀结构特征
         df['lower_touch_depth'] = (df['bb_lower'] - df['low']) / (df['bb_width'] + 0.0001)
         df['upper_touch_depth'] = (df['high'] - df['bb_upper']) / (df['bb_width'] + 0.0001)
         df['close_from_lower'] = (df['close'] - df['bb_lower']) / (df['bb_upper'] - df['bb_lower'] + 0.0001)
@@ -165,7 +165,7 @@ def add_technical_indicators(df):
 
 def create_labels(df):
     """
-    生成交易標籤
+    生成交易标签
     """
     labels_list = []
     
@@ -175,7 +175,7 @@ def create_labels(df):
         bb_upper = current_row['bb_upper']
         bb_lower = current_row['bb_lower']
         
-        # 下軌觸及
+        # 下轨触及
         if close_price <= bb_lower * 1.005:
             future_prices = df.iloc[i:i+6]['high']
             max_price = future_prices.max()
@@ -183,7 +183,7 @@ def create_labels(df):
             is_success = 1 if price_increase_pct > 0.5 else 0
             labels_list.append({'index': i, 'label': is_success, 'type': 'lower'})
         
-        # 上軌觸及
+        # 上轨触及
         if close_price >= bb_upper * 0.995:
             future_prices = df.iloc[i:i+6]['low']
             min_price = future_prices.min()
@@ -195,7 +195,7 @@ def create_labels(df):
 
 def extract_features(df, labels):
     """
-    提取特徵
+    提取特征
     """
     features_list = []
     
@@ -247,11 +247,11 @@ def extract_features(df, labels):
     return pd.DataFrame(features_list)
 
 # ============================================================================
-# 訓練主程序
+# 训练主程序
 # ============================================================================
 
-print(f"準備訓練 {len(Config.SYMBOLS)} 個幣種 × {len(Config.TIMEFRAMES)} 個時間框架")
-print(f"共 {len(Config.SYMBOLS) * len(Config.TIMEFRAMES)} 個模型\n")
+print(f"[INFO] 準备训练 {len(Config.SYMBOLS)} 个币种 x {len(Config.TIMEFRAMES)} 个时间框")
+print(f"[INFO] 共 {len(Config.SYMBOLS) * len(Config.TIMEFRAMES)} 个模型\n")
 
 training_results = {}
 success_count = 0
@@ -262,35 +262,35 @@ for symbol_idx, symbol in enumerate(Config.SYMBOLS, 1):
     print("-" * 70)
     
     for timeframe in Config.TIMEFRAMES:
-        # 推獲數據
+        # 下载数据
         df = download_from_hf(symbol, timeframe)
         if df is None or len(df) < 200:
-            print(f"      跳過（數據不足）")
+            print(f"      跳过（数据不足）")
             fail_count += 1
             continue
         
-        # 計算指標
+        # 计算指标
         df = add_technical_indicators(df)
         if df is None:
-            print(f"      跳過（指標計算失敗）")
+            print(f"      跳过（指标计算失败）")
             fail_count += 1
             continue
         
-        # 生成標籤
+        # 生成标签
         labels = create_labels(df)
         if len(labels) < 50:
-            print(f"      跳過（樣本太少 {len(labels)}）")
+            print(f"      跳过（样本太少 {len(labels)}）")
             fail_count += 1
             continue
         
-        # 提取特徵
+        # 提取特征
         features_df = extract_features(df, labels)
         if len(features_df) < 50:
-            print(f"      跳過（有效樣本太少 {len(features_df)}）")
+            print(f"      跳过（有效样本太少 {len(features_df)}）")
             fail_count += 1
             continue
         
-        # 準備數據
+        # 準备数据
         X = features_df.drop('label', axis=1)
         y = features_df['label']
         X = X.fillna(X.mean())
@@ -302,7 +302,7 @@ for symbol_idx, symbol in enumerate(Config.SYMBOLS, 1):
             X_scaled, y, test_size=0.2, random_state=42, stratify=y
         )
         
-        # 訓練模型
+        # 训练模型
         scale_pos_weight = (y_train == 0).sum() / max((y_train == 1).sum(), 1)
         
         model = XGBClassifier(
@@ -317,7 +317,7 @@ for symbol_idx, symbol in enumerate(Config.SYMBOLS, 1):
         
         model.fit(X_train, y_train)
         
-        # 評估
+        # 评估
         y_pred = model.predict(X_test)
         y_pred_proba = model.predict_proba(X_test)[:, 1]
         
@@ -347,32 +347,32 @@ for symbol_idx, symbol in enumerate(Config.SYMBOLS, 1):
             'samples': len(features_df)
         }
         
-        print(f"      訓練完成 | AUC: {auc:.4f} | 召回率: {recall:.2%} | F1: {f1:.4f}")
+        print(f"      训练完成 | AUC: {auc:.4f} | 召回率: {recall:.2%} | F1: {f1:.4f}")
         success_count += 1
 
 # ============================================================================
-# 結果匯總
+# 结果汇总
 # ============================================================================
 
 print(f"\n\n{'='*70}")
-print(f"訓練完成")
+print(f"训练完成")
 print(f"{'='*70}\n")
 
-print(f"成功: {success_count} | 失敗: {fail_count}\n")
+print(f"成功: {success_count} | 失败: {fail_count}\n")
 
 if training_results:
     results_df = pd.DataFrame(training_results).T
     results_df = results_df.sort_values('auc', ascending=False)
     
-    print("前 10 個最佳模型:")
-    print("\n{:20} | {:10} | {:10} | {:10}".format('模型 ID', 'AUC', '召回率', 'F1'))
+    print("前 10 个最佳模型:")
+    print("\n{:20} | {:10} | {:10} | {:10}".format('MODEL ID', 'AUC', 'RECALL', 'F1'))
     print("-" * 70)
     for model_id, row in results_df.head(10).iterrows():
         print("{:20} | {:10.4f} | {:10.2%} | {:10.4f}".format(
             model_id, row['auc'], row['recall'], row['f1']
         ))
     
-    # 保存結果
+    # 保存结果
     results_df.to_csv(f'{Config.RESULTS_DIR}/training_results.csv')
     
     with open(f'{Config.RESULTS_DIR}/models_metadata.json', 'w') as f:
@@ -383,6 +383,6 @@ if training_results:
             'results': training_results
         }, f, indent=2)
     
-    print(f"\n已保存到 {Config.RESULTS_DIR}/")
+    print(f"\n[INFO] 已保存到 {Config.RESULTS_DIR}/")
 
-print(f"\n模型已保存到 {Config.MODELS_DIR}/")
+print(f"[INFO] 模型已保存到 {Config.MODELS_DIR}/")
