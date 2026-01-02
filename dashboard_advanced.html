@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BB Bounce Pro - Advanced Trading Dashboard</title>
+    <script src="https://unpkg.com/lightweight-charts@4/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            width: 100%;
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+        }
+        
+        .header {
+            background: rgba(0, 0, 0, 0.3);
+            border-bottom: 2px solid #00d4ff;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0, 212, 255, 0.1);
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            font-weight: bold;
+            background: linear-gradient(90deg, #00d4ff, #0099ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+        }
+        
+        .header-right {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 15px;
+            background: rgba(76, 175, 80, 0.2);
+            border: 1px solid #4CAF50;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            background: #4CAF50;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .main-container {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            height: calc(100vh - 80px);
+            gap: 20px;
+            padding: 20px;
+        }
+        
+        .chart-container {
+            background: rgba(20, 30, 50, 0.8);
+            border: 1px solid #00d4ff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        #chart {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .sidebar-card {
+            background: rgba(20, 30, 50, 0.8);
+            border: 1px solid #00d4ff;
+            border-radius: 10px;
+            padding: 20px;
+            flex: 1;
+            overflow-y: auto;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        .sidebar-card::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .sidebar-card::-webkit-scrollbar-track {
+            background: rgba(100, 150, 180, 0.1);
+        }
+        
+        .sidebar-card::-webkit-scrollbar-thumb {
+            background: #00d4ff;
+            border-radius: 3px;
+        }
+        
+        .sidebar-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #00d4ff;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid rgba(0, 212, 255, 0.3);
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            font-size: 12px;
+            color: #b0b0b0;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        select, input {
+            width: 100%;
+            padding: 10px;
+            background: rgba(30, 40, 60, 0.8);
+            border: 1px solid #00d4ff;
+            border-radius: 5px;
+            color: #e0e0e0;
+            font-size: 14px;
+        }
+        
+        select:focus, input:focus {
+            outline: none;
+            border-color: #00ff88;
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(90deg, #00d4ff, #0099ff);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 212, 255, 0.3);
+        }
+        
+        .btn-secondary {
+            background: rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+            border: 1px solid #00d4ff;
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(0, 212, 255, 0.3);
+        }
+        
+        .signal-item {
+            background: rgba(0, 212, 255, 0.05);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            transition: all 0.3s;
+        }
+        
+        .signal-item:hover {
+            background: rgba(0, 212, 255, 0.1);
+            border-color: #00d4ff;
+            transform: translateX(3px);
+        }
+        
+        .signal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .signal-symbol {
+            font-weight: bold;
+            color: #00ff88;
+            font-size: 14px;
+        }
+        
+        .signal-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .badge-upper {
+            background: rgba(255, 100, 100, 0.3);
+            color: #ff6464;
+        }
+        
+        .badge-lower {
+            background: rgba(100, 200, 100, 0.3);
+            color: #64c864;
+        }
+        
+        .badge-excellent {
+            background: rgba(0, 255, 136, 0.3);
+            color: #00ff88;
+        }
+        
+        .badge-good {
+            background: rgba(0, 200, 255, 0.3);
+            color: #00c8ff;
+        }
+        
+        .signal-details {
+            font-size: 11px;
+            color: #a0a0a0;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .signal-value {
+            color: #00d4ff;
+            font-weight: bold;
+        }
+        
+        .prob-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(100, 100, 100, 0.3);
+            border-radius: 2px;
+            margin-top: 6px;
+            overflow: hidden;
+        }
+        
+        .prob-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00d4ff, #00ff88);
+            border-radius: 2px;
+        }
+        
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            margin-bottom: 10px;
+            padding: 8px;
+            background: rgba(0, 212, 255, 0.05);
+            border-radius: 5px;
+        }
+        
+        .stats-label {
+            color: #a0a0a0;
+        }
+        
+        .stats-value {
+            color: #00d4ff;
+            font-weight: bold;
+        }
+        
+        .empty-state {
+            text-align: center;
+            color: #666;
+            padding: 30px 20px;
+        }
+        
+        .empty-state p {
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+        
+        @media (max-width: 1400px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                max-height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1>BB Bounce Pro</h1>
+        <div class="header-right">
+            <span style="font-size: 14px; color: #a0a0a0;">Real-time Trading Signals</span>
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span>Live Monitoring</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="main-container">
+        <!-- Chart Area -->
+        <div class="chart-container">
+            <div id="chart"></div>
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <!-- Control Panel -->
+            <div class="sidebar-card">
+                <div class="sidebar-title">Control Panel</div>
+                
+                <div class="form-group">
+                    <label>Symbol</label>
+                    <select id="symbol" onchange="updateChart()">
+                        <option value="BTCUSDT">BTCUSDT - Bitcoin</option>
+                        <option value="ETHUSDT">ETHUSDT - Ethereum</option>
+                        <option value="BNBUSDT">BNBUSDT - Binance Coin</option>
+                        <option value="SOLUSDT">SOLUSDT - Solana</option>
+                        <option value="UNIUSDT">UNIUSDT - Uniswap</option>
+                        <option value="AVAXUSDT">AVAXUSDT - Avalanche</option>
+                        <option value="ADAUSDT">ADAUSDT - Cardano</option>
+                        <option value="DOGEUSDT">DOGEUSDT - Dogecoin</option>
+                        <option value="DOTUSDT">DOTUSDT - Polkadot</option>
+                        <option value="LINKUSDT">LINKUSDT - Chainlink</option>
+                        <option value="LTCUSDT">LTCUSDT - Litecoin</option>
+                        <option value="XRPUSDT">XRPUSDT - XRP</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Timeframe</label>
+                    <select id="timeframe" onchange="updateChart()">
+                        <option value="15m">15 Minutes</option>
+                        <option value="1h" selected>1 Hour</option>
+                        <option value="4h">4 Hours</option>
+                        <option value="1d">1 Day</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>BB Period</label>
+                    <input type="number" id="bb-period" value="20" min="10" max="50" onchange="updateChart()">
+                </div>
+                
+                <div class="form-group">
+                    <label>BB Standard Dev</label>
+                    <input type="number" id="bb-stddev" value="2" min="1" max="5" step="0.1" onchange="updateChart()">
+                </div>
+                
+                <div class="button-group">
+                    <button class="btn-primary" onclick="updateChart()">Update Chart</button>
+                    <button class="btn-secondary" onclick="resetChart()">Reset</button>
+                </div>
+                
+                <div style="margin-top: 15px; padding: 10px; background: rgba(0, 212, 255, 0.1); border-radius: 5px; font-size: 11px; color: #a0a0a0;">
+                    <strong style="color: #00d4ff;">Info:</strong> Real-time data from Binance. BB Channel shows potential bounce zones.
+                </div>
+            </div>
+            
+            <!-- Statistics -->
+            <div class="sidebar-card" style="flex: 0.5;">
+                <div class="sidebar-title">Statistics</div>
+                
+                <div class="stats-row">
+                    <span class="stats-label">Current Price</span>
+                    <span class="stats-value" id="current-price">-</span>
+                </div>
+                
+                <div class="stats-row">
+                    <span class="stats-label">BB Upper</span>
+                    <span class="stats-value" id="bb-upper-val">-</span>
+                </div>
+                
+                <div class="stats-row">
+                    <span class="stats-label">BB Lower</span>
+                    <span class="stats-value" id="bb-lower-val">-</span>
+                </div>
+                
+                <div class="stats-row">
+                    <span class="stats-label">Volatility</span>
+                    <span class="stats-value" id="volatility-val">-</span>
+                </div>
+            </div>
+            
+            <!-- Signals -->
+            <div class="sidebar-card" style="flex: 1;">
+                <div class="sidebar-title">Trading Signals</div>
+                <div id="signals-container">
+                    <div class="empty-state">
+                        <p>No signals yet</p>
+                        <p style="font-size: 11px;">Update chart to fetch data</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const API_URL = 'http://localhost:5000';
+        let chart = null;
+        let candlestickSeries = null;
+        let upperBandSeries = null;
+        let middleBandSeries = null;
+        let lowerBandSeries = null;
+        
+        // Initialize Chart
+        function initChart() {
+            const container = document.getElementById('chart');
+            
+            chart = LightweightCharts.createChart(container, {
+                layout: {
+                    background: { color: 'rgba(20, 30, 50, 0)' },
+                    textColor: '#a0a0a0',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto'
+                },
+                width: container.clientWidth,
+                height: container.clientHeight,
+                timeScale: {
+                    timeVisible: true,
+                    secondsVisible: false,
+                },
+                grid: {
+                    horzLines: { color: 'rgba(100, 150, 180, 0.1)' },
+                    vertLines: { color: 'rgba(100, 150, 180, 0.1)' },
+                },
+            });
+            
+            candlestickSeries = chart.addCandlestickSeries({
+                upColor: '#26a69a',
+                downColor: '#ef5350',
+                borderDownColor: '#ef5350',
+                borderUpColor: '#26a69a',
+                wickDownColor: '#ef5350',
+                wickUpColor: '#26a69a',
+            });
+            
+            // Upper Band
+            upperBandSeries = chart.addLineSeries({
+                color: '#ff6b6b',
+                lineWidth: 1,
+                lineStyle: 1,
+                title: 'BB Upper'
+            });
+            
+            // Middle Band
+            middleBandSeries = chart.addLineSeries({
+                color: '#4ecdc4',
+                lineWidth: 1,
+                lineStyle: 2,
+                title: 'BB Middle'
+            });
+            
+            // Lower Band
+            lowerBandSeries = chart.addLineSeries({
+                color: '#6bcf7f',
+                lineWidth: 1,
+                lineStyle: 1,
+                title: 'BB Lower'
+            });
+            
+            // Crosshair
+            chart.applyOptions({
+                crosshair: {
+                    mode: LightweightCharts.CrosshairMode.Normal,
+                    vertLine: {
+                        color: 'rgba(0, 212, 255, 0.3)',
+                        width: 1,
+                        style: 1,
+                    },
+                    horzLine: {
+                        color: 'rgba(0, 212, 255, 0.3)',
+                        width: 1,
+                        style: 1,
+                    },
+                },
+            });
+            
+            window.addEventListener('resize', () => {
+                chart.applyOptions({ width: container.clientWidth });
+            });
+        }
+        
+        // Fetch and update chart
+        async function updateChart() {
+            const symbol = document.getElementById('symbol').value;
+            const timeframe = document.getElementById('timeframe').value;
+            const period = parseInt(document.getElementById('bb-period').value);
+            const stddev = parseFloat(document.getElementById('bb-stddev').value);
+            
+            try {
+                // Mock data for demo
+                const mockData = generateMockData(50, period, stddev);
+                
+                candlestickSeries.setData(mockData.candles);
+                upperBandSeries.setData(mockData.upperBand);
+                middleBandSeries.setData(mockData.middleBand);
+                lowerBandSeries.setData(mockData.lowerBand);
+                
+                chart.timeScale().fitContent();
+                
+                // Update statistics
+                updateStatistics(mockData, symbol);
+                
+                // Update signals
+                updateSignals(mockData, symbol, timeframe);
+                
+            } catch (error) {
+                console.error('Error updating chart:', error);
+            }
+        }
+        
+        function generateMockData(count, period = 20, stddev = 2) {
+            const candles = [];
+            const upperBand = [];
+            const middleBand = [];
+            const lowerBand = [];
+            
+            let price = 40000;
+            const now = Math.floor(Date.now() / 1000);
+            
+            for (let i = 0; i < count; i++) {
+                const time = now - (count - i) * 3600;
+                const change = (Math.random() - 0.5) * 500;
+                const open = price;
+                const close = price + change;
+                const high = Math.max(open, close) + Math.random() * 300;
+                const low = Math.min(open, close) - Math.random() * 300;
+                
+                candles.push({ time, open, high, low, close });
+                price = close;
+            }
+            
+            // Calculate Bollinger Bands
+            const closes = candles.map(c => c.close);
+            for (let i = period - 1; i < closes.length; i++) {
+                const window = closes.slice(i - period + 1, i + 1);
+                const mean = window.reduce((a, b) => a + b) / period;
+                const variance = window.reduce((a, b) => a + Math.pow(b - mean, 2)) / period;
+                const std = Math.sqrt(variance);
+                const time = candles[i].time;
+                
+                middleBand.push({ time, value: mean });
+                upperBand.push({ time, value: mean + std * stddev });
+                lowerBand.push({ time, value: mean - std * stddev });
+            }
+            
+            return { candles, upperBand, middleBand, lowerBand };
+        }
+        
+        function updateStatistics(mockData, symbol) {
+            const lastCandle = mockData.candles[mockData.candles.length - 1];
+            const lastMiddle = mockData.middleBand[mockData.middleBand.length - 1];
+            const lastUpper = mockData.upperBand[mockData.upperBand.length - 1];
+            const lastLower = mockData.lowerBand[mockData.lowerBand.length - 1];
+            
+            document.getElementById('current-price').textContent = '$' + lastCandle.close.toFixed(2);
+            document.getElementById('bb-upper-val').textContent = '$' + lastUpper.value.toFixed(2);
+            document.getElementById('bb-lower-val').textContent = '$' + lastLower.value.toFixed(2);
+            
+            const volatility = ((lastUpper.value - lastLower.value) / lastMiddle.value * 100).toFixed(2);
+            document.getElementById('volatility-val').textContent = volatility + '%';
+        }
+        
+        function updateSignals(mockData, symbol, timeframe) {
+            const signals = generateMockSignals(symbol, timeframe);
+            const container = document.getElementById('signals-container');
+            
+            if (signals.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>No active signals</p></div>';
+                return;
+            }
+            
+            let html = '';
+            signals.forEach(sig => {
+                const touchBadge = sig.type === 'LOWER' 
+                    ? '<span class="signal-badge badge-lower">LOWER</span>' 
+                    : '<span class="signal-badge badge-upper">UPPER</span>';
+                const confBadge = sig.confidence > 0.75 
+                    ? '<span class="signal-badge badge-excellent">EXCELLENT</span>'
+                    : '<span class="signal-badge badge-good">GOOD</span>';
+                
+                html += `
+                    <div class="signal-item">
+                        <div class="signal-header">
+                            <span class="signal-symbol">${sig.symbol}</span>
+                            <div>${touchBadge}</div>
+                        </div>
+                        <div class="signal-details">
+                            <span>Confidence: <span class="signal-value">${(sig.confidence * 100).toFixed(0)}%</span></span>
+                            <span>RSI: <span class="signal-value">${sig.rsi.toFixed(0)}</span></span>
+                        </div>
+                        <div class="prob-bar">
+                            <div class="prob-fill" style="width: ${sig.confidence * 100}%"></div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        function generateMockSignals(symbol, timeframe) {
+            const signals = [];
+            
+            const mockSignals = [
+                { symbol: 'BTCUSDT', type: 'LOWER', confidence: 0.85, rsi: 25 },
+                { symbol: 'ETHUSDT', type: 'UPPER', confidence: 0.72, rsi: 72 },
+                { symbol: 'SOLUSDT', type: 'LOWER', confidence: 0.88, rsi: 20 },
+            ];
+            
+            return mockSignals.filter(sig => sig.symbol.startsWith(symbol.split('USDT')[0]));
+        }
+        
+        function resetChart() {
+            document.getElementById('bb-period').value = 20;
+            document.getElementById('bb-stddev').value = 2;
+            updateChart();
+        }
+        
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', () => {
+            initChart();
+            updateChart();
+        });
+    </script>
+</body>
+</html>
