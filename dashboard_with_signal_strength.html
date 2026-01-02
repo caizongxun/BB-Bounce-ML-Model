@@ -388,6 +388,17 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+        
+        .progress-info {
+            text-align: center;
+            color: #9ca3af;
+            font-size: 12px;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: rgba(6, 182, 212, 0.05);
+            border-radius: 4px;
+            border: 1px solid rgba(6, 182, 212, 0.2);
+        }
     </style>
 </head>
 <body>
@@ -463,6 +474,7 @@
             </div>
             
             <div class="detector-content">
+                <div id="progress-info" class="progress-info" style="display: none;"></div>
                 <div id="symbols-container" class="symbols-grid">
                     <div class="loading"><div class="spinner"></div> 正在加載數據...</div>
                 </div>
@@ -482,7 +494,7 @@
         const API_BASE = 'http://localhost:5001';
         const ML_API = 'http://localhost:5002';
         
-        // 另使用已訓練的 22 種幣種
+        // 只使用已訓練的 22 種幣種
         const SYMBOLS = [
             'AAVESTDT', 'ADAUSDT', 'ALGOUSDT', 'ARBUSDT', 'ATOMUSDT',
             'AVAXUSDT', 'BCHUSDT', 'BNBUSDT', 'BTCUSDT', 'DOGEUSDT',
@@ -492,7 +504,6 @@
         ];
         
         let detectorInterval = null;
-        let allSymbolsData = {};
         
         // UI 更新監聽器
         document.getElementById('touch-threshold').addEventListener('input', (e) => {
@@ -510,6 +521,103 @@
             event.target.classList.add('active');
         }
         
+        // 並行加載單個幣種
+        async function fetchSymbolData(symbol, timeframe, period, threshold, minConfidence) {
+            try {
+                // 並行加載 K 線數據和 ML 預測
+                const chartPromise = fetch(
+                    `${API_BASE}/api/klines?symbol=${symbol}&timeframe=${timeframe}&period=${period}&stddev=2&limit=5`
+                );
+                
+                // 先等 K 線數據
+                const chartResponse = await chartPromise;
+                if (!chartResponse.ok) return null;
+                
+                const chartData = await chartResponse.json();
+                const stats = chartData.stats;
+                const price = stats.current_price;
+                const upper = stats.bb_upper;
+                const lower = stats.bb_lower;
+                const middle = stats.bb_middle;
+                
+                // 計算距離百分比
+                const distToUpper = Math.abs(upper - price) / middle * 100;
+                const distToLower = Math.abs(price - lower) / middle * 100;
+                const isNearUpper = distToUpper <= threshold;
+                const isNearLower = distToLower <= threshold;
+                
+                // 並行加載 ML 預測
+                let signal = '---';
+                let confidence = 0;
+                let signalStrength = '未知';
+                let signalClass = '';
+                
+                try {
+                    const mlResponse = await fetch(`${ML_API}/api/predict`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            symbol: symbol,
+                            timeframe: timeframe,
+                            close: price,
+                            bb_upper: upper,
+                            bb_lower: lower,
+                            bb_middle: middle,
+                            rsi: 50,
+                            volatility: stats.volatility
+                        })
+                    });
+                    
+                    if (mlResponse.ok) {
+                        const mlData = await mlResponse.json();
+                        signal = mlData.signal;
+                        confidence = mlData.confidence;
+                        
+                        // 判斷信號強度
+                        if (confidence >= 0.75) {
+                            signalStrength = '強信號';
+                            signalClass = 'strength-strong';
+                        } else if (confidence >= 0.60) {
+                            signalStrength = '中信號';
+                            signalClass = 'strength-medium';
+                        } else {
+                            signalStrength = '弱信號';
+                            signalClass = 'strength-weak';
+                        }
+                        
+                        // 過濾最小信心度
+                        if (confidence * 100 < minConfidence) return null;
+                    }
+                } catch (e) {
+                    console.log(`${symbol} ML 預測失敗`);
+                }
+                
+                // 構建卡片數據
+                const alertType = isNearUpper ? 'upper' : (isNearLower ? 'lower' : 'none');
+                const alertDistance = Math.min(distToUpper, distToLower);
+                
+                return {
+                    symbol,
+                    price,
+                    upper,
+                    lower,
+                    alertType,
+                    isNearUpper,
+                    isNearLower,
+                    alertDistance,
+                    signal,
+                    confidence,
+                    signalStrength,
+                    signalClass,
+                    volatility: stats.volatility
+                };
+                
+            } catch (e) {
+                console.log(`${symbol} 加載失敗`);
+                return null;
+            }
+        }
+        
         async function updateDetector() {
             const timeframe = document.getElementById('timeframe').value;
             const period = document.getElementById('bb-period').value;
@@ -519,106 +627,28 @@
             const sortByStrength = document.getElementById('sort-by-strength').checked;
             
             const container = document.getElementById('symbols-container');
-            container.innerHTML = '<div class="loading"><div class="spinner"></div> 正在掃描所有幣種...</div>';
+            const progressInfo = document.getElementById('progress-info');
+            
+            container.innerHTML = '<div class="loading"><div class="spinner"></div> 正在並行加載 22 個幣種...</div>';
+            progressInfo.style.display = 'block';
+            progressInfo.innerHTML = '已完成: 0/22';
             
             try {
-                const cardsData = [];
+                // 並行加載所有幣種（關鍵優化）
+                const promises = SYMBOLS.map(symbol => fetchSymbolData(symbol, timeframe, period, threshold, minConfidence));
                 
-                for (const symbol of SYMBOLS) {
-                    try {
-                        // 獲取 K 線數據
-                        const chartResponse = await fetch(
-                            `${API_BASE}/api/klines?symbol=${symbol}&timeframe=${timeframe}&period=${period}&stddev=2&limit=5`
-                        );
-                        
-                        if (!chartResponse.ok) continue;
-                        
-                        const chartData = await chartResponse.json();
-                        const stats = chartData.stats;
-                        const price = stats.current_price;
-                        const upper = stats.bb_upper;
-                        const lower = stats.bb_lower;
-                        const middle = stats.bb_middle;
-                        
-                        // 計算距離百分比
-                        const distToUpper = Math.abs(upper - price) / middle * 100;
-                        const distToLower = Math.abs(price - lower) / middle * 100;
-                        const isNearUpper = distToUpper <= threshold;
-                        const isNearLower = distToLower <= threshold;
-                        
-                        // 如果不是警報且只顯示警報，跳過
-                        if (showAlertsOnly && !isNearUpper && !isNearLower) continue;
-                        
-                        // 獲取 ML 預測
-                        let signal = '---';
-                        let confidence = 0;
-                        let signalStrength = '未知';
-                        let signalClass = '';
-                        
-                        try {
-                            const mlResponse = await fetch(`${ML_API}/api/predict`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    symbol: symbol,
-                                    timeframe: timeframe,
-                                    close: price,
-                                    bb_upper: upper,
-                                    bb_lower: lower,
-                                    bb_middle: middle,
-                                    rsi: 50,
-                                    volatility: stats.volatility
-                                })
-                            });
-                            
-                            if (mlResponse.ok) {
-                                const mlData = await mlResponse.json();
-                                signal = mlData.signal;
-                                confidence = mlData.confidence;
-                                
-                                // 判斷信號強度
-                                if (confidence >= 0.75) {
-                                    signalStrength = '強信號';
-                                    signalClass = 'strength-strong';
-                                } else if (confidence >= 0.60) {
-                                    signalStrength = '中信號';
-                                    signalClass = 'strength-medium';
-                                } else {
-                                    signalStrength = '弱信號';
-                                    signalClass = 'strength-weak';
-                                }
-                                
-                                // 過濾最小信心度
-                                if (confidence * 100 < minConfidence) continue;
-                            }
-                        } catch (e) {
-                            console.log(`${symbol} ML 預測失敗`);
-                        }
-                        
-                        // 構建卡片數據
-                        const alertType = isNearUpper ? 'upper' : (isNearLower ? 'lower' : 'none');
-                        const alertDistance = Math.min(distToUpper, distToLower);
-                        
-                        cardsData.push({
-                            symbol,
-                            price,
-                            upper,
-                            lower,
-                            alertType,
-                            isNearUpper,
-                            isNearLower,
-                            alertDistance,
-                            signal,
-                            confidence,
-                            signalStrength,
-                            signalClass,
-                            volatility: stats.volatility
-                        });
-                        
-                    } catch (e) {
-                        console.log(`${symbol} 加載失敗`);
-                    }
-                }
+                // 使用 Promise.allSettled 來追蹤進度
+                let completedCount = 0;
+                const progressPromises = promises.map(p => 
+                    p.then(result => {
+                        completedCount++;
+                        progressInfo.innerHTML = `已完成: ${completedCount}/22`;
+                        return result;
+                    })
+                );
+                
+                const results = await Promise.all(progressPromises);
+                const cardsData = results.filter(r => r !== null);
                 
                 // 排序
                 if (sortByStrength) {
@@ -628,25 +658,33 @@
                 }
                 
                 // 渲染卡片
-                renderCards(cardsData);
+                renderCards(cardsData, showAlertsOnly);
                 setStatus(true);
                 updateTime();
+                progressInfo.style.display = 'none';
                 
             } catch (error) {
                 console.error('更新失敗:', error);
                 setStatus(false);
+                progressInfo.innerHTML = '加載失敗，請重試';
             }
         }
         
-        function renderCards(cardsData) {
+        function renderCards(cardsData, showAlertsOnly) {
             const container = document.getElementById('symbols-container');
             
-            if (cardsData.length === 0) {
+            // 過濾只顯示警報
+            let displayData = cardsData;
+            if (showAlertsOnly) {
+                displayData = cardsData.filter(d => d.alertType !== 'none');
+            }
+            
+            if (displayData.length === 0) {
                 container.innerHTML = '<div class="loading">沒有找到符合條件的幣種</div>';
                 return;
             }
             
-            container.innerHTML = cardsData.map(data => `
+            container.innerHTML = displayData.map(data => `
                 <div class="symbol-card alert-${data.alertType}">
                     <div class="symbol-header">
                         <div class="symbol-name">${data.symbol.replace('USDT', '')}</div>
