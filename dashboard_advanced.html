@@ -64,6 +64,15 @@
             animation: pulse 2s infinite;
         }
         
+        .status-indicator.error {
+            background: rgba(255, 100, 100, 0.2);
+            border-color: #ff6464;
+        }
+        
+        .status-indicator.error .status-dot {
+            background: #ff6464;
+        }
+        
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
@@ -83,11 +92,41 @@
             border-radius: 10px;
             overflow: hidden;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            position: relative;
         }
         
         #chart {
             width: 100%;
             height: 100%;
+        }
+        
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(20, 30, 50, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            z-index: 10;
+        }
+        
+        .spinner {
+            border: 3px solid rgba(0, 212, 255, 0.2);
+            border-top: 3px solid #00d4ff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
         
         .sidebar {
@@ -175,12 +214,17 @@
             transition: all 0.3s;
         }
         
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
         .btn-primary {
             background: linear-gradient(90deg, #00d4ff, #0099ff);
             color: white;
         }
         
-        .btn-primary:hover {
+        .btn-primary:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(0, 212, 255, 0.3);
         }
@@ -191,7 +235,7 @@
             border: 1px solid #00d4ff;
         }
         
-        .btn-secondary:hover {
+        .btn-secondary:hover:not(:disabled) {
             background: rgba(0, 212, 255, 0.3);
         }
         
@@ -240,16 +284,6 @@
         .badge-lower {
             background: rgba(100, 200, 100, 0.3);
             color: #64c864;
-        }
-        
-        .badge-excellent {
-            background: rgba(0, 255, 136, 0.3);
-            color: #00ff88;
-        }
-        
-        .badge-good {
-            background: rgba(0, 200, 255, 0.3);
-            color: #00c8ff;
         }
         
         .signal-details {
@@ -309,6 +343,16 @@
             margin-bottom: 10px;
         }
         
+        .error-message {
+            background: rgba(255, 100, 100, 0.1);
+            border: 1px solid #ff6464;
+            color: #ff9999;
+            padding: 12px;
+            border-radius: 5px;
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+        
         @media (max-width: 1400px) {
             .main-container {
                 grid-template-columns: 1fr;
@@ -326,9 +370,9 @@
         <h1>BB Bounce Pro</h1>
         <div class="header-right">
             <span style="font-size: 14px; color: #a0a0a0;">Real-time Trading Signals</span>
-            <div class="status-indicator">
+            <div class="status-indicator" id="status-indicator">
                 <div class="status-dot"></div>
-                <span>Live Monitoring</span>
+                <span>Connecting...</span>
             </div>
         </div>
     </div>
@@ -338,6 +382,10 @@
         <!-- Chart Area -->
         <div class="chart-container">
             <div id="chart"></div>
+            <div class="loading-overlay" id="loading-overlay">
+                <div class="spinner"></div>
+                <span>Fetching real-time data from Binance...</span>
+            </div>
         </div>
         
         <!-- Sidebar -->
@@ -345,6 +393,8 @@
             <!-- Control Panel -->
             <div class="sidebar-card">
                 <div class="sidebar-title">Control Panel</div>
+                
+                <div id="error-message"></div>
                 
                 <div class="form-group">
                     <label>Symbol</label>
@@ -385,12 +435,12 @@
                 </div>
                 
                 <div class="button-group">
-                    <button class="btn-primary" onclick="updateChart()">Update Chart</button>
+                    <button class="btn-primary" id="update-btn" onclick="updateChart()">Update Chart</button>
                     <button class="btn-secondary" onclick="resetChart()">Reset</button>
                 </div>
                 
                 <div style="margin-top: 15px; padding: 10px; background: rgba(0, 212, 255, 0.1); border-radius: 5px; font-size: 11px; color: #a0a0a0;">
-                    <strong style="color: #00d4ff;">Info:</strong> Real-time data from Binance. BB Channel shows potential bounce zones.
+                    <strong style="color: #00d4ff;">Info:</strong> Real-time data from Binance US API. BB Channel shows potential bounce zones.
                 </div>
             </div>
             
@@ -417,15 +467,20 @@
                     <span class="stats-label">Volatility</span>
                     <span class="stats-value" id="volatility-val">-</span>
                 </div>
+                
+                <div class="stats-row">
+                    <span class="stats-label">RSI</span>
+                    <span class="stats-value" id="rsi-val">-</span>
+                </div>
             </div>
             
             <!-- Signals -->
             <div class="sidebar-card" style="flex: 1;">
-                <div class="sidebar-title">Trading Signals</div>
+                <div class="sidebar-title">Analysis Results</div>
                 <div id="signals-container">
                     <div class="empty-state">
-                        <p>No signals yet</p>
-                        <p style="font-size: 11px;">Update chart to fetch data</p>
+                        <p>No analysis yet</p>
+                        <p style="font-size: 11px;">Click "Update Chart" to fetch data</p>
                     </div>
                 </div>
             </div>
@@ -433,12 +488,13 @@
     </div>
     
     <script>
-        const API_URL = 'http://localhost:5000';
+        const CHART_SERVICE_URL = 'http://localhost:5001';
         let chart = null;
         let candlestickSeries = null;
         let upperBandSeries = null;
         let middleBandSeries = null;
         let lowerBandSeries = null;
+        let currentData = null;
         
         // Initialize Chart
         function initChart() {
@@ -513,151 +569,170 @@
             });
             
             window.addEventListener('resize', () => {
-                chart.applyOptions({ width: container.clientWidth });
+                if (chart) {
+                    chart.applyOptions({ width: container.clientWidth });
+                }
             });
+            
+            updateChart();
         }
         
-        // Fetch and update chart
+        // Fetch and update chart with REAL data
         async function updateChart() {
             const symbol = document.getElementById('symbol').value;
             const timeframe = document.getElementById('timeframe').value;
             const period = parseInt(document.getElementById('bb-period').value);
             const stddev = parseFloat(document.getElementById('bb-stddev').value);
             
+            document.getElementById('loading-overlay').style.display = 'flex';
+            document.getElementById('update-btn').disabled = true;
+            document.getElementById('error-message').innerHTML = '';
+            
             try {
-                // Mock data for demo
-                const mockData = generateMockData(50, period, stddev);
+                console.log(`Fetching real data for ${symbol} ${timeframe}...`);
                 
-                candlestickSeries.setData(mockData.candles);
-                upperBandSeries.setData(mockData.upperBand);
-                middleBandSeries.setData(mockData.middleBand);
-                lowerBandSeries.setData(mockData.lowerBand);
+                // Fetch real data from chart data service
+                const response = await fetch(
+                    `${CHART_SERVICE_URL}/api/klines?symbol=${symbol}&timeframe=${timeframe}&period=${period}&stddev=${stddev}`,
+                    { headers: { 'Accept': 'application/json' } }
+                );
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP Error: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                currentData = data;
+                
+                console.log(`Successfully fetched ${data.candles.length} candles`);
+                
+                // Update chart with real data
+                candlestickSeries.setData(data.candles);
+                upperBandSeries.setData(data.bb_upper);
+                middleBandSeries.setData(data.bb_middle);
+                lowerBandSeries.setData(data.bb_lower);
                 
                 chart.timeScale().fitContent();
                 
                 // Update statistics
-                updateStatistics(mockData, symbol);
+                updateStatistics(data);
                 
                 // Update signals
-                updateSignals(mockData, symbol, timeframe);
+                updateSignals(data, symbol, timeframe);
+                
+                // Update status
+                updateStatus(true);
                 
             } catch (error) {
                 console.error('Error updating chart:', error);
-            }
-        }
-        
-        function generateMockData(count, period = 20, stddev = 2) {
-            const candles = [];
-            const upperBand = [];
-            const middleBand = [];
-            const lowerBand = [];
-            
-            let price = 40000;
-            const now = Math.floor(Date.now() / 1000);
-            
-            for (let i = 0; i < count; i++) {
-                const time = now - (count - i) * 3600;
-                const change = (Math.random() - 0.5) * 500;
-                const open = price;
-                const close = price + change;
-                const high = Math.max(open, close) + Math.random() * 300;
-                const low = Math.min(open, close) - Math.random() * 300;
                 
-                candles.push({ time, open, high, low, close });
-                price = close;
-            }
-            
-            // Calculate Bollinger Bands
-            const closes = candles.map(c => c.close);
-            for (let i = period - 1; i < closes.length; i++) {
-                const window = closes.slice(i - period + 1, i + 1);
-                const mean = window.reduce((a, b) => a + b) / period;
-                const variance = window.reduce((a, b) => a + Math.pow(b - mean, 2)) / period;
-                const std = Math.sqrt(variance);
-                const time = candles[i].time;
+                const errorMsg = `Error: ${error.message}. Make sure Chart Data Service is running on port 5001.`;
+                document.getElementById('error-message').innerHTML = 
+                    `<div class="error-message">${errorMsg}</div>`;
                 
-                middleBand.push({ time, value: mean });
-                upperBand.push({ time, value: mean + std * stddev });
-                lowerBand.push({ time, value: mean - std * stddev });
+                updateStatus(false);
+            } finally {
+                document.getElementById('loading-overlay').style.display = 'none';
+                document.getElementById('update-btn').disabled = false;
             }
-            
-            return { candles, upperBand, middleBand, lowerBand };
         }
         
-        function updateStatistics(mockData, symbol) {
-            const lastCandle = mockData.candles[mockData.candles.length - 1];
-            const lastMiddle = mockData.middleBand[mockData.middleBand.length - 1];
-            const lastUpper = mockData.upperBand[mockData.upperBand.length - 1];
-            const lastLower = mockData.lowerBand[mockData.lowerBand.length - 1];
+        function updateStatistics(data) {
+            const stats = data.stats;
             
-            document.getElementById('current-price').textContent = '$' + lastCandle.close.toFixed(2);
-            document.getElementById('bb-upper-val').textContent = '$' + lastUpper.value.toFixed(2);
-            document.getElementById('bb-lower-val').textContent = '$' + lastLower.value.toFixed(2);
-            
-            const volatility = ((lastUpper.value - lastLower.value) / lastMiddle.value * 100).toFixed(2);
-            document.getElementById('volatility-val').textContent = volatility + '%';
+            document.getElementById('current-price').textContent = '$' + stats.current_price.toFixed(2);
+            document.getElementById('bb-upper-val').textContent = '$' + stats.bb_upper.toFixed(2);
+            document.getElementById('bb-lower-val').textContent = '$' + stats.bb_lower.toFixed(2);
+            document.getElementById('volatility-val').textContent = stats.volatility.toFixed(2) + '%';
+            document.getElementById('rsi-val').textContent = stats.rsi.toFixed(2);
         }
         
-        function updateSignals(mockData, symbol, timeframe) {
-            const signals = generateMockSignals(symbol, timeframe);
+        function updateSignals(data, symbol, timeframe) {
+            const stats = data.stats;
             const container = document.getElementById('signals-container');
             
-            if (signals.length === 0) {
-                container.innerHTML = '<div class="empty-state"><p>No active signals</p></div>';
+            // Check if touching BB
+            const tolerance = 0.995; // 0.5% tolerance
+            const touchingUpper = stats.current_price >= stats.bb_upper * tolerance;
+            const touchingLower = stats.current_price <= stats.bb_lower / tolerance;
+            
+            if (!touchingUpper && !touchingLower) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <p>No BB touch detected</p>
+                        <p style="font-size: 11px;">Price between bands: ${((stats.current_price - stats.bb_lower) / (stats.bb_upper - stats.bb_lower) * 100).toFixed(1)}%</p>
+                    </div>
+                `;
                 return;
             }
             
             let html = '';
-            signals.forEach(sig => {
-                const touchBadge = sig.type === 'LOWER' 
-                    ? '<span class="signal-badge badge-lower">LOWER</span>' 
-                    : '<span class="signal-badge badge-upper">UPPER</span>';
-                const confBadge = sig.confidence > 0.75 
-                    ? '<span class="signal-badge badge-excellent">EXCELLENT</span>'
-                    : '<span class="signal-badge badge-good">GOOD</span>';
-                
+            
+            if (touchingLower) {
+                const distance = ((stats.bb_lower - stats.current_price) / stats.bb_lower * 100).toFixed(2);
                 html += `
                     <div class="signal-item">
                         <div class="signal-header">
-                            <span class="signal-symbol">${sig.symbol}</span>
-                            <div>${touchBadge}</div>
+                            <span class="signal-symbol">${symbol} ${timeframe}</span>
+                            <span class="signal-badge badge-lower">LOWER TOUCH</span>
                         </div>
                         <div class="signal-details">
-                            <span>Confidence: <span class="signal-value">${(sig.confidence * 100).toFixed(0)}%</span></span>
-                            <span>RSI: <span class="signal-value">${sig.rsi.toFixed(0)}</span></span>
+                            <span>Distance: <span class="signal-value">${distance}%</span></span>
+                            <span>RSI: <span class="signal-value">${stats.rsi.toFixed(0)}</span></span>
                         </div>
                         <div class="prob-bar">
-                            <div class="prob-fill" style="width: ${sig.confidence * 100}%"></div>
+                            <div class="prob-fill" style="width: ${Math.max(0, 100 - parseFloat(distance))}%"></div>
                         </div>
                     </div>
                 `;
-            });
+            }
+            
+            if (touchingUpper) {
+                const distance = ((stats.current_price - stats.bb_upper) / stats.bb_upper * 100).toFixed(2);
+                html += `
+                    <div class="signal-item">
+                        <div class="signal-header">
+                            <span class="signal-symbol">${symbol} ${timeframe}</span>
+                            <span class="signal-badge badge-upper">UPPER TOUCH</span>
+                        </div>
+                        <div class="signal-details">
+                            <span>Distance: <span class="signal-value">${distance}%</span></span>
+                            <span>RSI: <span class="signal-value">${stats.rsi.toFixed(0)}</span></span>
+                        </div>
+                        <div class="prob-bar">
+                            <div class="prob-fill" style="width: ${Math.max(0, 100 - parseFloat(distance))}%"></div>
+                        </div>
+                    </div>
+                `;
+            }
             
             container.innerHTML = html;
-        }
-        
-        function generateMockSignals(symbol, timeframe) {
-            const signals = [];
-            
-            const mockSignals = [
-                { symbol: 'BTCUSDT', type: 'LOWER', confidence: 0.85, rsi: 25 },
-                { symbol: 'ETHUSDT', type: 'UPPER', confidence: 0.72, rsi: 72 },
-                { symbol: 'SOLUSDT', type: 'LOWER', confidence: 0.88, rsi: 20 },
-            ];
-            
-            return mockSignals.filter(sig => sig.symbol.startsWith(symbol.split('USDT')[0]));
         }
         
         function resetChart() {
             document.getElementById('bb-period').value = 20;
             document.getElementById('bb-stddev').value = 2;
+            document.getElementById('symbol').value = 'BTCUSDT';
+            document.getElementById('timeframe').value = '1h';
             updateChart();
+        }
+        
+        function updateStatus(success) {
+            const indicator = document.getElementById('status-indicator');
+            if (success) {
+                indicator.className = 'status-indicator';
+                indicator.innerHTML = '<div class="status-dot"></div><span>Live - Connected</span>';
+            } else {
+                indicator.className = 'status-indicator error';
+                indicator.innerHTML = '<div class="status-dot"></div><span>Error - Disconnected</span>';
+            }
         }
         
         // Initialize on load
         window.addEventListener('DOMContentLoaded', () => {
+            console.log('Dashboard initializing...');
+            console.log('Chart Data Service URL:', CHART_SERVICE_URL);
             initChart();
-            updateChart();
         });
     </script>
 </body>
