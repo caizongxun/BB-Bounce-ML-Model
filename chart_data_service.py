@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 图表数据来源服务
-提供真实 K 棒数据和 Bollinger Bands 计算
+提供真实 K 棒數据和 Bollinger Bands 计算
 """
 
 from flask import Flask, jsonify, request
@@ -35,23 +35,24 @@ class Config:
         '1h': '1h', '4h': '4h', '1d': '1d'
     }
     
+    # 根据时间框架提供更多K棒
     LOOKBACK_MAP = {
-        '15m': 100,
-        '1h': 100,
-        '4h': 50,
-        '1d': 30
+        '15m': 200,  # 增加到 200
+        '1h': 200,   # 增加到 200
+        '4h': 150,   # 增加到 150
+        '1d': 100    # 增加到 100
     }
 
 # ============================================================================
-# 数据推遭
+# 数据推獲
 # ============================================================================
 
-def fetch_klines(symbol, timeframe, limit=100):
+def fetch_klines(symbol, timeframe, limit=200):
     """从 Binance US 抓取 K 棒"""
     
     interval = Config.TIMEFRAME_MAP.get(timeframe, '15m')
     url = f"{Config.BINANCE_BASE_URL}/api/v3/klines"
-    params = {'symbol': symbol, 'interval': interval, 'limit': limit}
+    params = {'symbol': symbol, 'interval': interval, 'limit': min(limit, 1000)}  # Binance API 最大 1000
     
     try:
         response = requests.get(url, params=params, timeout=10)
@@ -73,7 +74,7 @@ def fetch_klines(symbol, timeframe, limit=100):
         return df[['open', 'high', 'low', 'close', 'volume']]
     
     except Exception as e:
-        print(f"[ERROR] 抓取 {symbol} {timeframe} 失敗: {str(e)[:50]}")
+        print(f"[ERROR] 推遭 {symbol} {timeframe} 失败: {str(e)[:50]}")
         return None
 
 def calculate_bollinger_bands(df, period=20, stddev=2):
@@ -118,24 +119,27 @@ def get_klines():
         timeframe = request.args.get('timeframe', '1h')
         period = int(request.args.get('period', 20))
         stddev = float(request.args.get('stddev', 2))
+        limit = int(request.args.get('limit', 200))  # 允许自定义数量
         
-        limit = Config.LOOKBACK_MAP.get(timeframe, 100)
+        # 限制最大数量
+        limit = min(limit, 1000)
         
-        # 抓取数据
+        # 推遭数据
         df = fetch_klines(symbol, timeframe, limit=limit)
         if df is None:
             return jsonify({'error': 'Failed to fetch data'}), 500
         
-        # 计算指標
+        # 计算指标
         df = calculate_bollinger_bands(df, period=period, stddev=stddev)
         df = calculate_rsi(df)
         
-        # 上開下易易国载数据为 JSON
+        # 转换数据为 JSON
         result = {
             'symbol': symbol,
             'timeframe': timeframe,
             'period': period,
             'stddev': stddev,
+            'total_candles': len(df),
             'candles': [],
             'bb_upper': [],
             'bb_middle': [],
@@ -147,10 +151,10 @@ def get_klines():
         df = df.dropna()
         
         for idx, row in df.iterrows():
-            timestamp = int(idx.timestamp() * 1000)
+            timestamp = int(idx.timestamp())
             
             result['candles'].append({
-                'time': timestamp // 1000,
+                'time': timestamp,
                 'open': float(row['open']),
                 'high': float(row['high']),
                 'low': float(row['low']),
@@ -158,22 +162,22 @@ def get_klines():
             })
             
             result['bb_upper'].append({
-                'time': timestamp // 1000,
+                'time': timestamp,
                 'value': float(row['bb_upper'])
             })
             
             result['bb_middle'].append({
-                'time': timestamp // 1000,
+                'time': timestamp,
                 'value': float(row['bb_middle'])
             })
             
             result['bb_lower'].append({
-                'time': timestamp // 1000,
+                'time': timestamp,
                 'value': float(row['bb_lower'])
             })
             
             result['rsi'].append({
-                'time': timestamp // 1000,
+                'time': timestamp,
                 'value': float(row['rsi'])
             })
         
@@ -186,7 +190,9 @@ def get_klines():
             'bb_lower': float(last_row['bb_lower']),
             'bb_width': float(last_row['bb_upper'] - last_row['bb_lower']),
             'rsi': float(last_row['rsi']),
-            'volatility': float((last_row['bb_upper'] - last_row['bb_lower']) / last_row['bb_middle'] * 100)
+            'volatility': float((last_row['bb_upper'] - last_row['bb_lower']) / last_row['bb_middle'] * 100),
+            'highest': float(df['high'].max()),
+            'lowest': float(df['low'].min())
         }
         
         return jsonify(result)
@@ -196,7 +202,7 @@ def get_klines():
 
 @app.route('/api/analyze', methods=['POST', 'OPTIONS'])
 def analyze():
-    """分析币种是否觸及 BB"""
+    """分析币种是否触及 BB"""
     
     if request.method == 'OPTIONS':
         return '', 204
@@ -210,12 +216,12 @@ def analyze():
         
         limit = Config.LOOKBACK_MAP.get(timeframe, 100)
         
-        # 抓取数据
+        # 推遭数据
         df = fetch_klines(symbol, timeframe, limit=limit)
         if df is None:
             return jsonify({'error': 'Failed to fetch data'}), 500
         
-        # 计算指標
+        # 计算指标
         df = calculate_bollinger_bands(df, period=period, stddev=stddev)
         df = calculate_rsi(df)
         
@@ -225,7 +231,7 @@ def analyze():
         bb_lower = last_row['bb_lower']
         rsi = last_row['rsi']
         
-        # 判断是否觸及
+        # 判断是否触及
         touched = None
         touch_type = None
         distance = None
@@ -262,7 +268,7 @@ def analyze():
 
 @app.route('/api/health', methods=['GET', 'OPTIONS'])
 def health():
-    """渤棄棄狀态"""
+    """健康状态"""
     
     if request.method == 'OPTIONS':
         return '', 204
@@ -270,7 +276,8 @@ def health():
     return jsonify({
         'status': 'ok',
         'service': 'Chart Data Service',
-        'timestamp': datetime.now().isoformat()
+        'timestamp': datetime.now().isoformat(),
+        'max_candles': 1000
     })
 
 # ============================================================================
@@ -278,11 +285,12 @@ def health():
 # ============================================================================
 
 if __name__ == '__main__':
-    print("[INFO] 图表数据源服务已開始")
+    print("[INFO] 图表数据源服务已开始")
     print("[INFO] 地址: http://localhost:5001")
     print("[INFO] 端点:")
-    print("   GET  /api/klines - 推遭 K 棒")
-    print("   POST /api/analyze - 分析 BB 觸及")
+    print("   GET  /api/klines - 推遭 K 棒（现在支持最多 1000 根）")
+    print("   POST /api/analyze - 分析 BB 触及")
+    print("   GET  /api/health - 服务状态")
     print("[INFO] 按 CTRL+C 停止\n")
     
     app.run(host='0.0.0.0', port=5001, debug=False)
