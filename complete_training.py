@@ -77,25 +77,52 @@ def download_from_hf(symbol, timeframe):
         
         df = pd.read_parquet(local_path)
         
-        # 處理索引
+        # 處理索引 - 關鍵修復！支持多種時間戳格式
         if not isinstance(df.index, pd.DatetimeIndex):
             if 'timestamp' in df.columns:
-                df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+                try:
+                    # 先嘗試毫秒時間戳
+                    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+                except:
+                    try:
+                        # 再嘗試秒時間戳
+                        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
+                    except:
+                        # 最後嘗試字符串格式
+                        df['timestamp'] = pd.to_datetime(df['timestamp'])
                 df.set_index('timestamp', inplace=True)
             elif 'datetime' in df.columns:
-                df['datetime'] = pd.to_datetime(df['datetime'])
+                try:
+                    df['datetime'] = pd.to_datetime(df['datetime'])
+                except:
+                    # 如果是字符串格式
+                    df['datetime'] = pd.to_datetime(df['datetime'], format='%Y-%m-%d %H:%M:%S')
                 df.set_index('datetime', inplace=True)
         
         # 統一列名
         df.columns = df.columns.str.lower()
         
+        # 確保有必需的列
+        required_cols = ['open', 'high', 'low', 'close', 'volume']
+        if not all(col in df.columns for col in required_cols):
+            print(f"   ⚠️  缺少必需列，嘗試列名映射...")
+            # 嘗試常見的列名映射
+            rename_map = {
+                'o': 'open', 'h': 'high', 'l': 'low', 'c': 'close', 'v': 'volume',
+                'Open': 'open', 'High': 'high', 'Low': 'low', 'Close': 'close', 'Volume': 'volume'
+            }
+            df.rename(columns=rename_map, inplace=True)
+        
         print(f"   ✅ 下載成功: {len(df)} 行")
         print(f"   時間範圍: {df.index[0]} ~ {df.index[-1]}")
+        print(f"   列: {list(df.columns[:10])}...")
         
         return df
     
     except Exception as e:
         print(f"   ❌ 下載失敗: {str(e)}")
+        import traceback
+        print(f"   詳細錯誤: {traceback.format_exc()}")
         return None
 
 def download_all_data():
